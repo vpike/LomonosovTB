@@ -7,7 +7,7 @@
 #define PARALLEL_TB
 #endif
 
-#ifndef PARALLEL
+#ifndef LOMONOSOV_FULL
 #define ABORT(x) { exit(x); }
 #endif
 
@@ -65,6 +65,7 @@
 // compression & format flags
 #define TB_PERMUTATIONS			   0x0010
 #define TB_FIX_COMP_SIZE		   0x0020
+#define TB_RE_PAIR_PARAMS		   0x0040
 #define TB_MD5_PROTECTED           0x8000
 #define TB_TERNARY                 0x4000
 #define TB_BINARY                  0x2000

@@ -74,6 +74,7 @@ bool load_lomonosov_tb_position_local(int side, unsigned int *psqW, unsigned int
 void form_fen_local(position *pos, bool wtm, char *fen, short_pieces_env *local_env);
 // Get the name of ending for the fen.
 void get_tb_name_without_slice_local(char *buf, short_pieces_env *local_env);
+void get_output_tb_filename_local(char *tab_file, int kind, short_pieces_env *local_env, char *table_path);
 
 // Combination of table types, used in all functions, except get_value_local.
 // One digit in WL, ZWL, PL, ZPL, ML, ZML, TL, ZTL.

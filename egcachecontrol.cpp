@@ -176,7 +176,7 @@ void clean_hidden_cache() {
 				}
 				else {
 					root = buf_list;
-					buf_list->requests = 1;
+					buf_list->requests = 0;
 				}
 				buf_list = buf_list->next;
 			}

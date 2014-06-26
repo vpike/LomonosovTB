@@ -298,6 +298,7 @@ void change_internal_value(int *eval, char table_type) {
 }
 
 int __stdcall probe_fen(const char *fen, int *eval, char table_type) {
+	*eval = 0;
 	if (UNKNOWN_TB_TYPE(table_type))
 		return PROBE_UNKNOWN_TB_TYPE;
 	int result;
@@ -314,6 +315,9 @@ int __stdcall probe_fen(const char *fen, int *eval, char table_type) {
 	return result;
 }
 
+// It's special function for TB7Service.
+// 1. It can return PROBE_MATE.
+// 2. It must get right (*eval). (*eval) = 1 means that we need only in loses.
 int __stdcall probe_fen_special_mate_state(const char *fen, int *eval, char table_type) {
 	if (UNKNOWN_TB_TYPE(table_type))
 		return PROBE_UNKNOWN_TB_TYPE;
@@ -335,6 +339,7 @@ int __stdcall probe_fen_special_mate_state(const char *fen, int *eval, char tabl
 
 int __stdcall probe_fen_dtmz50(const char *fen, int *eval)
 {
+	*eval = 0;
 	int result;
 	result = PROBE_NO_TABLE;
 	short_pieces_env local_env;
@@ -363,9 +368,9 @@ int __stdcall probe_fen_dtmz50(const char *fen, int *eval)
 }
 
 int __stdcall probe_fen_with_order(const char *fen, int *eval) {
+	*eval = 0;
 	int result;
 	result = PROBE_NO_TABLE;
-	*eval = 0;
 	if (table_order_count <= 0)
 		return result;
 	short_pieces_env local_env;
@@ -386,6 +391,7 @@ int __stdcall probe_fen_with_order(const char *fen, int *eval) {
 }
 
 int __stdcall probe_position(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, int *eval, char table_type, unsigned char castlings) {
+	*eval = 0;
 	if (UNKNOWN_TB_TYPE(table_type))
 		return PROBE_UNKNOWN_TB_TYPE;
 	int result;
@@ -403,6 +409,7 @@ int __stdcall probe_position(int side, unsigned int *psqW, unsigned int *psqB, i
 }
 
 int __stdcall probe_position_dtmz50(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, int *eval, unsigned char castlings) {
+	*eval = 0;
 	int result;
 	result = PROBE_NO_TABLE;
 	short_pieces_env local_env;
@@ -431,9 +438,9 @@ int __stdcall probe_position_dtmz50(int side, unsigned int *psqW, unsigned int *
 }
 
 int __stdcall probe_position_with_order(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, int *eval, unsigned char castlings) {
+	*eval = 0;
 	int result;
 	result = PROBE_NO_TABLE;
-	*eval = 0;
 	if (table_order_count <= 0)
 		return result;
 	short_pieces_env local_env;

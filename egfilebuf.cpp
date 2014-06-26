@@ -1,6 +1,10 @@
 #include "egfilebuf.h"
 #include "egpglobals.h"
 #include "egcachecontrol.h"
+#ifdef LOMONOSOV_FULL
+#include "egtypes.h"
+#include "egglobals.h"
+#endif
 
 #include <assert.h>
 

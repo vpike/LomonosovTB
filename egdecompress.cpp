@@ -85,6 +85,7 @@ void compressed_file_bufferizer::calc_virtual_file_number() {
 	current_virtual_file_number = start_file;
 }
 
+// attention! We must have correct src_file!
 void compressed_file_bufferizer::load_virtual_files_shift() {
 	if (opened_ && (arch_type & TB_FIX_COMP_SIZE) && (f_men_count >= 7 || !(arch_type & TB_TERNARY))) {
 		unsigned int pcs_table_size;
@@ -95,7 +96,6 @@ void compressed_file_bufferizer::load_virtual_files_shift() {
 		virtual_files_count = (pcs_table_size + VIRTUAL_FILE_BLOCKS_COUNT - 1) / VIRTUAL_FILE_BLOCKS_COUNT;
 		// read from file
 		if (virtual_files_count > 1) {
-			choose_src_file();
 			src_file->set_buf_size(128);
 			if (!current_file_number) src_file->seek(header_size);
 			else src_file->seek(0);
@@ -104,7 +104,7 @@ void compressed_file_bufferizer::load_virtual_files_shift() {
 			virtual_files_shift = (file_offset *)malloc((virtual_files_count + 1) * sizeof(file_offset));
 			file_offset *tmp = (file_offset *)malloc((virtual_files_count - 1) * sizeof(file_offset));
 			src_file->read((char *)tmp, (virtual_files_count - 1) * sizeof(file_offset));
-			virtual_files_shift[current_file_number] = file_starts[0];
+			virtual_files_shift[0] = file_starts[current_file_number];
 			for (int i = 1; i < virtual_files_count; i++)
 				virtual_files_shift[i] = file_starts[current_file_number] + read_int64_LE((unsigned char *)&tmp[i - 1]);
 			virtual_files_shift[virtual_files_count] = file_starts[current_file_number + 1];
@@ -230,6 +230,7 @@ unsigned long long compressed_file_bufferizer::get_piece_number() {
 			} else
 				start_file = file_number;
 		}
+		file_number = start_file;
 	} else {
 		piece_number = cur_file_pos_read / uncompr_piece_size;
 		file_number = piece_number / pieces_per_file;
@@ -244,13 +245,19 @@ unsigned long long compressed_file_bufferizer::get_piece_number() {
 	}
 	if (file_number != current_file_number) {
 		piece_table_loaded = false;
+		choose_src_file(); // virtual_files_shift loaded here
+		if (!not_caching) {
+			mutex_lock(read_bufferizer_mutexer);
+			src_file->unlock();
+			mutex_unlock(read_bufferizer_mutexer);
+			src_file = NULL;
+		}
 		current_file_number = file_number;
-	} else {
-		unsigned char old_virtual_file_number = current_virtual_file_number;
-		calc_virtual_file_number();
-		if (current_virtual_file_number != old_virtual_file_number)
-			piece_table_loaded = false;
 	}
+	unsigned char old_virtual_file_number = current_virtual_file_number;
+	calc_virtual_file_number();
+	if (current_virtual_file_number != old_virtual_file_number)
+		piece_table_loaded = false;
 	// 1) src_file works on a file that contains needed piece
 	// 2) if piece_table_loaded = false, then we are looking at the beginning of pieces table
 	if (!piece_table_loaded) {
@@ -300,7 +307,7 @@ size_t compressed_file_bufferizer::read_compressed_buffer(char **compressed_buff
 	else
 		src_file->set_buf_size(buf_size / 8);
 	if (arch_type & TB_FIX_COMP_SIZE)
-		src_file->seek(get_header_size() + (*piece_number) * uncompr_piece_size);
+		src_file->seek(get_header_size() + (*piece_number + (unsigned long long)current_virtual_file_number * VIRTUAL_FILE_BLOCKS_COUNT) * uncompr_piece_size);
 	else
 		src_file->seek(piece_offsets[*piece_number]);
 	src_file->read(compr_buffer, piece_size);
@@ -796,12 +803,19 @@ bool compressed_file_bufferizer::begin_read(const char *filename, file_offset st
 			buf_read_offset += 8;
 		}
 	}
-	// read size of piece size
+	// read size of piece size and PARAMS
 	if ((arch_type & TB_COMP_METHOD_MASK) == TB_RE_PAIR) {
 		src_file->read((char*)buf + buf_write_offset, 1);
 		buf_write_offset += 1;
 		sizeof_ps = buf[buf_read_offset];
 		buf_read_offset += 1;
+		if (arch_type & TB_RE_PAIR_PARAMS) {
+			src_file->read((char *)buf + buf_write_offset, 2);
+			buf_write_offset += 2;
+			primary_dc_change = buf[buf_read_offset];
+			dc_lower_bound = buf[buf_read_offset+1];
+			buf_read_offset += 2;
+		}
 	}
 	src_file->read((char*)buf + buf_write_offset, 2);
 	buf_write_offset += 2;

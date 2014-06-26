@@ -22,7 +22,11 @@ extern long long bb_piece_not_blocks[3][128][128];
 extern const int board_vec[];
 extern const int vec_start[];
 
-unsigned char adjust_enpassant_pos(unsigned char pos, unsigned char piece);
+inline unsigned char adjust_enpassant_pos(unsigned char pos, unsigned char piece) {
+	if (piece == WPAWN && pos <= 7) return pos+48;
+	if (piece == BPAWN && pos >= 112) return pos-48;
+	return pos;
+}
 void init_bitboards();
 
 extern bool caching_file_bufferizers;

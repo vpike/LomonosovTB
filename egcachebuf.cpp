@@ -1,6 +1,10 @@
 #include "egcachebuf.h"
 #include "egpglobals.h"
 #include "egcachecontrol.h"
+#ifdef LOMONOSOV_FULL
+#include "egtypes.h"
+#include "egglobals.h"
+#endif
 
 cache_file_bufferizer::cache_file_bufferizer(int index, int table_type) {
 	current_buffer_from_cache = false;
@@ -29,7 +33,8 @@ size_t cache_file_bufferizer::read_compressed_buffer(char **compressed_buffer, s
 		return compressed_file_bufferizer::read_compressed_buffer(compressed_buffer, comp_size, piece_number);
 	}
 	*piece_number = get_piece_number();
-	unsigned long long real_piece_number = (*piece_number) + (unsigned long long)pieces_per_file * (unsigned long long)current_file_number;
+	unsigned long long real_piece_number = (*piece_number) + (unsigned long long)pieces_per_file * (unsigned long long)current_file_number
+		+ (unsigned long long)current_virtual_file_number * VIRTUAL_FILE_BLOCKS_COUNT;
 	if (!global_cache.find(cache_index, real_piece_number, cache_table_type, compressed_buffer, (unsigned long *)comp_size)) {
 		size_t org_size = compressed_file_bufferizer::read_compressed_buffer(compressed_buffer, comp_size, piece_number);
 		global_cache.insert(cache_index, real_piece_number, cache_table_type, *compressed_buffer, *comp_size, cache_index);
@@ -263,6 +268,7 @@ unsigned int cache_file_bufferizer::load_piece_table() {
 					max_size_of_buf = offsets_list->max_size_of_buf;
 					set_buf_size(max_size_of_buf);
 				}
+				piece_table_loaded = true;
 				rwlock_unlock(piece_offsets_locker);
 				return offsets_list->count;
 			}
@@ -287,7 +293,7 @@ unsigned int cache_file_bufferizer::load_piece_table() {
 			else {
 				piece_offsets_list *offsets_list = it->second;
 				while (offsets_list != NULL) {
-					if (offsets_list->file_number == current_file_number)
+					if (offsets_list->file_number == current_file_number && offsets_list->virtual_file_number == current_virtual_file_number)
 						break;
 					offsets_list = offsets_list->next;
 				}

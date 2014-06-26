@@ -27,16 +27,18 @@
 #define TB_DATA_ZBTTM	  23
 #define TB_Z_STATS		  24
 #define TB_Z_LONGEST_MATE 25
-#define TB_Z_IS_BUILDING  26
-#define TB_Z_LONGEST_MTM  27
-#define TB_DATA_WPL		  28
-#define TB_DATA_BPL		  29
-#define TB_DATA_WWL		  30
-#define TB_DATA_BWL		  31
-#define TB_DATA_ZWPL	  32
-#define TB_DATA_ZBPL	  33
-#define TB_DATA_ZWWL	  34
-#define TB_DATA_ZBWL	  35
+#define TB_STATS_FENS	  26
+#define TB_Z_STATS_FENS	  27
+#define TB_Z_IS_BUILDING  28
+#define TB_Z_LONGEST_MTM  29
+#define TB_DATA_WPL		  30
+#define TB_DATA_BPL		  31
+#define TB_DATA_WWL		  32
+#define TB_DATA_BWL		  33
+#define TB_DATA_ZWPL	  34
+#define TB_DATA_ZBPL	  35
+#define TB_DATA_ZWWL	  36
+#define TB_DATA_ZBWL	  37
 
 extern const char *tbext[];
 extern const char tt_to_ft_map[14];

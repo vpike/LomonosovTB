@@ -3,7 +3,7 @@
 #include "egtbfile.h"
 
 const char *tbext[] = { "", "tbs", "dtm", "bld", "lmw", "lmb", "tlw", "tlb", "mlw", "mlb", "dlw", "dlb",
-	"zlmw", "zlmb", "ztlw", "ztlb", "zmlw", "zmlb", "zdlw", "zdlb", "ltw", "ltb", "zltw", "zltb", "ztbs", "dtz", "zbld", "dtm50",
+	"zlmw", "zlmb", "ztlw", "ztlb", "zmlw", "zmlb", "zdlw", "zdlb", "ltw", "ltb", "zltw", "zltb", "ztbs", "dtz", "tbsm", "ztbsm", "zbld", "dtm50",
 	"plw", "plb", "wlw", "wlb", "zplw", "zplb", "zwlw", "zwlb"};
 const char tt_to_ft_map[14] = { TB_DATA_WMT, TB_DATA_WWL, TB_DATA_WTT, TB_DATA_WPL, TB_DATA_WTTD, // ML, WL, TL, PL, DL
 	TB_DATA_ZWMT, TB_DATA_ZWWL, TB_DATA_ZWTT, TB_DATA_ZWPL, TB_DATA_ZWTTD, // ZML, ZWL, ZTL, ZPL, ZDL
@@ -19,9 +19,13 @@ unsigned char get_men_count(const char *filename) {
 		--i;
 	}
 	// skip extension
-	while (filename[i] != '.')
+	int old_i = i;
+	while (i >= 0 && filename[i] != '.')
 		--i;
-	--i;
+	if (i >= 0)
+		--i;
+	else
+		i = old_i;
 	for (char j = 0; j < 2; j++) {
 		while (filename[i] != 'k') {
 			if (filename[i] < '0' || filename[i] > '9')

@@ -76,6 +76,8 @@ protected:
 	bool bit_shift_of_block;
 	bool piece_table_loaded;
 	bool probe_one_exact;
+	bool primary_dc_change;
+	char dc_lower_bound;
 	// return size of uncompressed buffer
 	size_t virtual read_compressed_buffer(char **compressed_buffer, size_t *comp_size, unsigned long long *piece_number);
 	void virtual free_compressed_buffer(char *compressed_buffer) { free(compressed_buffer); }

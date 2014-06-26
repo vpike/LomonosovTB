@@ -2,6 +2,10 @@
 #include "egmaintypes.h"
 #include "egsindex.h"
 #include "egpglobals.h"
+#ifdef LOMONOSOV_FULL
+#include "egtypes.h"
+#include "egglobals.h"
+#endif
 
 #define SWAP(a,b,t) { t = a; a = b; b = t; }
 

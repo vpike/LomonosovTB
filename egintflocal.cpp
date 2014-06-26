@@ -855,10 +855,10 @@ bool probe_forward_move(short_pieces_env *local_env, color_position *local_pos, 
 	color_position minor_pos;
 	position_to_minor_env(local_env, local_pos, &minor_env, &minor_pos, capture, promote_pc);
 	if (minor_env.men_count == 2) {
-		search_values[1] = 0;
+		search_values[2] = 0;
 		return true;
 	}
-	int eval;
+	int eval = search_values[5];
 	int probe_result = PROBE_NO_TABLE;
 	unsigned long minor_index = get_table_index_local(minor_pos.cur_wtm, &minor_env);
 	if (capture == EMPTY && promote_pc == EMPTY && local_env->pslice_number == minor_env.pslice_number) // not minor. Probe only own color
@@ -924,6 +924,19 @@ unsigned long change_color_in_index(unsigned long index) {
 }
 
 cache_file_bufferizer *begin_read_table_file_cache_local(bool wtm, file_offset start_pos, file_offset length, int table_type, short_pieces_env *local_env, unsigned long local_index, char *table_path) {
+	// clean hidden cache, if it's necessary
+	rwlock_rdlock(hidden_locker);
+	if (!memory_allocation_done && cur_hidden_size >= max_hidden_size) {
+		rwlock_unlock(hidden_locker);
+		allocate_cache_memory();
+		rwlock_rdlock(hidden_locker);
+	}
+	if (cur_hidden_size >= max_hidden_size) {
+		rwlock_unlock(hidden_locker);
+		clean_hidden_cache();
+	} else
+		rwlock_unlock(hidden_locker);
+
 	cache_file_bufferizer *filebuf = NULL;
 	char tbname[MAX_PATH];
 	unordered_map<unsigned long, bufferizer_list<cache_file_bufferizer> *> *bufferizers;
@@ -970,18 +983,6 @@ cache_file_bufferizer *begin_read_table_file_cache_local(bool wtm, file_offset s
 			else
 				filebuf->seek(0);
 			if (caching_file_bufferizers) {
-				rwlock_rdlock(hidden_locker);
-				if (!memory_allocation_done && cur_hidden_size >= max_hidden_size) {
-					rwlock_unlock(hidden_locker);
-					allocate_cache_memory();
-					rwlock_rdlock(hidden_locker);
-				}
-				if (cur_hidden_size >= max_hidden_size) {
-					rwlock_unlock(hidden_locker);
-					clean_hidden_cache();
-				}
-				else
-					rwlock_unlock(hidden_locker);
 				rwlock_wrlock(cache_file_buf_locker);
 				if ((it = bufferizers->find(local_index)) != bufferizers->end()) {
 					it->second->add(filebuf, 0, NULL, 1);
@@ -1695,6 +1696,10 @@ int get_value_from_own_color_local(int *eval, int table_type, short_pieces_env *
 		*eval = 1;
 		return result;
 	}
+	if ((*eval) == 1 && tmp_eval != -1) { // we need only in lose
+		*eval = -1;
+		return PROBE_OK;
+	}
 	result = get_simple_value_from_load_position_local(eval, table_type, local_env, local_pos, tmp_eval);
 	if (result != PROBE_OK_WITHOUT_VALUE) // simple value
 		return result;
@@ -1702,11 +1707,16 @@ int get_value_from_own_color_local(int *eval, int table_type, short_pieces_env *
 	result = get_explicit_value_from_load_position_local(eval, table_type, local_env, local_pos, local_index);
 	if (result == PROBE_OK)
 		*eval = (*eval) * 2 + tmp_eval;
+	else
+		*eval = tmp_eval * 2;
 	return result;
 }
 
 int get_value_from_alien_color_local(int *eval, int table_type, short_pieces_env *local_env, color_position *local_pos) {
-	int search_values[5] = {0, -2, -2, -2, 0}; // {0 - in order to no return from gen moves, -1 ... - init values}
+	int search_values[6] = {0, -2, -2, -2, 0, 0}; // {return from gen_moves, 3 init values, pawn move flag, need only in loses flag}
+	if (*eval == 2) { // we know from WL that it's win
+		search_values[5] = 1;
+	}
 	unsigned char local_board[128];
 	clear_board_local(local_board);
 	put_pieces_on_board_local(local_env, local_pos, local_board);
@@ -1729,7 +1739,8 @@ int get_value_from_alien_color_local(int *eval, int table_type, short_pieces_env
 
 int get_value_from_load_position_local(int *eval, int table_type, short_pieces_env *local_env, color_position *local_pos,
 	unsigned long local_index) {
-	*eval = get_standard_eval(table_type);
+	if (*eval != 1)
+		*eval = get_standard_eval(table_type);
 	int result = get_value_from_own_color_local(eval, table_type, local_env, local_pos, local_index);
 	if (result == PROBE_NO_TABLE)
 		result = get_value_from_alien_color_local(eval, table_type, local_env, local_pos);

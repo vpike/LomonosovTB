@@ -29,12 +29,6 @@ long long bb_places[129]; // just 1 bit set, last is used for BOX king place
 signed int bb_not_block_index[] = { -1, -1, -1, -1, 0, 1, 2 };
 long long bb_piece_not_blocks[3][128][128]; // [index of attack (bb_not_block_index[piece])][attacking_pos][blocking_pos]
 
-unsigned char inline adjust_enpassant_pos(unsigned char pos, unsigned char piece) {
-	if (piece == WPAWN && pos <= 7) return pos+48;
-	if (piece == BPAWN && pos >= 112) return pos-48;
-	return pos;
-}
-
 #define brd88to64(x) ((x & 7) | ((x & 0xf0) >> 1))
 
 void init_bitboards() {
