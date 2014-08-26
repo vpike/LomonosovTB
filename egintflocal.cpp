@@ -820,7 +820,7 @@ bool probe_forward_capture_local(short_pieces_env *local_env, color_position *lo
 		search_results[1] = true;
 		return true;
 	}
-	int eval;
+	int eval = 0;
 	int probe_result = PROBE_NO_TABLE;
 	unsigned long minor_index = get_table_index_local(minor_pos.cur_wtm, &minor_env);
 	probe_result = get_value_from_load_position_local(&eval, table_type, &minor_env, &minor_pos, minor_index);
@@ -831,6 +831,36 @@ bool probe_forward_capture_local(short_pieces_env *local_env, color_position *lo
 		return false;
 	} else
 		search_results[eval + 1] = true;
+	return true;
+}
+
+// It called for necessary positions and probe PL
+bool probe_forward_capture_pl_local(short_pieces_env *local_env, color_position *local_pos, char *search_results, int capture, unsigned char promote_pc, int table_type) {
+	short_pieces_env minor_env;
+	unsigned char pcs[8];
+	minor_env.pieces = pcs;
+	color_position minor_pos;
+	position_to_minor_env(local_env, local_pos, &minor_env, &minor_pos, capture, promote_pc);
+	if (minor_env.men_count == 2)
+		return true;
+	int eval = NEED_IN_SOME(search_results[1]);
+	int probe_result = PROBE_NO_TABLE;
+	unsigned long minor_index = get_table_index_local(minor_pos.cur_wtm, &minor_env);
+	tbfile_entry *tbe = (tbfile_entry *)&search_results[2];
+	probe_result = get_value_from_load_position_local(&eval, table_type, &minor_env, &minor_pos, minor_index);
+	if (probe_result != PROBE_OK) {
+		char name[80];
+		get_tb_name_local(name, &minor_env);
+		printf("Error probing minor position %llx with wtm = %d from %s with code %d\n", minor_pos.cur_pos.as_number, minor_pos.cur_wtm, name, probe_result);
+		return false;
+	} else {
+		if (eval > 0 && (*tbe + eval) % 2 == 1) { //right result in position
+			if (search_results[1] == 0 && *tbe < eval + 1)
+				*tbe = eval + 1;
+			if (search_results[1] == 1 && *tbe > eval + 1)
+				*tbe = eval + 1;
+		}
+	}
 	return true;
 }
 
@@ -1225,13 +1255,15 @@ void form_fen_local(position *pos, bool wtm, char *fen, short_pieces_env *local_
 	piCount - array 0..9 of current piece count:
 	wp, wn, wb, wr, wq, bp, bn, bb, br, bq
 
-	psq* structure:
+	psq* structure - positions of pieces in 0..63 format:
 	0..5 - pawns positions
 	6..11 - knights positions
 	12..17 - bishops positions
 	18..23 - rooks positions
 	24..29 - queens positions
 	30 - king position
+
+	sqEnP - position of En passant square (16..23 or 40..47)
 */
 
 bool load_lomonosov_tb_position_local(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, 
@@ -1314,7 +1346,7 @@ bool load_lomonosov_tb_position_local(int side, unsigned int *psqW, unsigned int
 	local_env->pslice_number = invert_color ? 7 - black_slice_num : possible_slice_num;
 	local_pos->cur_wtm = (side == 0);
 
-	if (sqEnP < 64) { // enpassant
+	if (0 < sqEnP < 64) { // enpassant
 		if (!local_pos->cur_wtm) sqEnP += 8;
 		else sqEnP -= 8;
 		sqEnP = sq64_to_lomonosov(sqEnP);
@@ -1352,6 +1384,66 @@ int get_cur_table_not_exist_local(unsigned long index, int table_type) {
 	}
 	else
 		return 1;
+}
+
+void init_types_vector() {
+	for (int table_type = MIN_TYPE; table_type <= MAX_TYPE; table_type++) {
+		types_vector[table_type].clear();
+		types_vector[table_type].push_back(table_type);
+	}
+	// DL type - order: TL, DL
+	for (int table_type = DL; table_type <= MAX_TYPE; table_type += DTZ50_BEGIN) {
+		types_vector[table_type].insert(types_vector[table_type].begin(), TL + DTZ50_BEGIN * (table_type >= DTZ50_BEGIN));
+	}
+}
+
+int get_max_pieces_count_extended(char table_type) {
+	int max = 0;
+	for (std::vector<int>::iterator it_types = types_vector[table_type].begin(); it_types != types_vector[table_type].end(); it_types++) {
+		int cur_max = max_pieces_count[*it_types];
+		if (cur_max > max)
+			max = cur_max;
+	}
+	return max;
+}
+
+int get_standard_eval(int table_type) {
+	if (DTM_TYPE(table_type))
+		return -1;
+	else
+		return 0;
+}
+
+int get_position_sign(int eval) {
+	if (eval == -1)
+		return 0;
+	else if (eval & 1)
+		return 1;
+	else
+		return -1;
+}
+
+void change_internal_value(int *eval, char table_type) {
+	switch (table_type) {
+	case ML: case PL:
+		if (*eval == 0) //mate
+			*eval = -1;
+		else
+			*eval = get_position_sign(*eval) * (*eval);
+		break;
+	case ZML: case ZPL:
+		if (*eval == 0) //mate
+			*eval = -1;
+		else
+			*eval = get_position_sign(*eval) * ((*eval) + 1) / 2;
+		break;
+		// old
+	/*case TL: case WL: case ZTL: case ZWL:
+		if ((*eval) == 0)
+			*eval = -1;
+		else
+			*eval = ((*eval) + 1) / 2 + TERNARY_LOSE_VALUE;*/
+	}
 }
 
 #ifdef LOG_MEMORY
@@ -1440,6 +1532,8 @@ void log_memory() {
 }
 
 #endif
+
+#define PL_UPDATE_FLAG 0x8000
 
 int get_value_local(int *eval, int table_type, short_pieces_env *local_env, color_position *local_pos,
 	unsigned long local_index, char *table_path) {
@@ -1547,6 +1641,10 @@ int get_value_local(int *eval, int table_type, short_pieces_env *local_env, colo
 		return PROBE_NO_TABLE;
 	}
 
+	bool pl_update = false;
+	if (table_type == PL && filebuf->dont_care())
+		pl_update = true;
+
 	/*Read value from file position, calculated  by tbind*/
 	tbfile_entry tbe;
 	tbfile_tern_entry tbte;
@@ -1589,6 +1687,9 @@ int get_value_local(int *eval, int table_type, short_pieces_env *local_env, colo
 			*eval = tbte;
 		break;
 	}
+
+	if (pl_update)
+		*eval |= PL_UPDATE_FLAG;
 
 	if (!caching_file_bufferizers)
 		delete filebuf;
@@ -1648,24 +1749,6 @@ int get_simple_value_from_load_position_local(int *eval, int table_type, short_p
 	return PROBE_OK_WITHOUT_VALUE;
 }
 
-int get_standard_eval(int table_type) {
-	if (DTM_TYPE(table_type))
-		return -1;
-	else
-		return 0;
-}
-
-void init_types_vector() {
-	for (int table_type = MIN_TYPE; table_type <= MAX_TYPE; table_type++) {
-		types_vector[table_type].clear();
-		types_vector[table_type].push_back(table_type);
-	}
-	// DL type - order: TL, DL
-	for (int table_type = DL; table_type <= MAX_TYPE; table_type += DTZ50_BEGIN) {
-		types_vector[table_type].insert(types_vector[table_type].begin(), TL + DTZ50_BEGIN * (table_type >= DTZ50_BEGIN));
-	}
-}
-
 int get_explicit_value_from_load_position_local(int *eval, int table_type, short_pieces_env *local_env, color_position *local_pos,
 	unsigned long local_index) {
 	vector<int>::iterator it_types;
@@ -1696,27 +1779,44 @@ int get_value_from_own_color_local(int *eval, int table_type, short_pieces_env *
 		*eval = 1;
 		return result;
 	}
-	if ((*eval) == 1 && tmp_eval != -1) { // we need only in lose
-		*eval = -1;
+	bool win = tmp_eval == 1;
+	if (REJECT_PROBE(win, *eval)) { // we need only in lose or win
+		*eval = NEED_IN_SOME(win);
 		return PROBE_OK;
 	}
 	result = get_simple_value_from_load_position_local(eval, table_type, local_env, local_pos, tmp_eval);
 	if (result != PROBE_OK_WITHOUT_VALUE) // simple value
 		return result;
-	tmp_eval = (tmp_eval + 1) / 2;
+	int pl_update = tmp_eval;
 	result = get_explicit_value_from_load_position_local(eval, table_type, local_env, local_pos, local_index);
-	if (result == PROBE_OK)
-		*eval = (*eval) * 2 + tmp_eval;
+	if (*eval & PL_UPDATE_FLAG)
+		*eval ^= PL_UPDATE_FLAG; // remove flag
 	else
-		*eval = tmp_eval * 2;
+		pl_update = 0;
+	if (result == PROBE_OK)
+		*eval = (*eval) * 2 + win;
+	else
+		*eval = NEED_IN_SOME(win);
+	// Update pl-value to the max or min by captures
+	if (pl_update != 0) {
+		char search_results[4] = {0, 0, 0, 0}; // {return flag from gen, wl-value, 2-bytes for tbe}
+		search_results[1] = win;
+		*((tbfile_entry *)&search_results[2]) = *eval;
+		unsigned char local_board[128];
+		clear_board_local(local_board);
+		put_pieces_on_board_local(local_env, local_pos, local_board);
+		if (!gen_forward_moves_capture_local(local_env, local_pos, local_board, search_results, table_type, probe_forward_capture_pl_local)) {
+			return PROBE_NO_TABLE;
+		}
+		*eval = *((tbfile_entry *)&search_results[2]);
+	}
 	return result;
 }
 
 int get_value_from_alien_color_local(int *eval, int table_type, short_pieces_env *local_env, color_position *local_pos) {
-	int search_values[6] = {0, -2, -2, -2, 0, 0}; // {return from gen_moves, 3 init values, pawn move flag, need only in loses flag}
-	if (*eval == 2) { // we know from WL that it's win
-		search_values[5] = 1;
-	}
+	int search_values[6] = {0, -2, -2, -2, 0, 0}; // {return from gen_moves, 3 init values, pawn move flag, initial eval (may be need only in win or lose)}
+	// may be we know from WL that it's win or lose
+	search_values[5] = *eval;
 	unsigned char local_board[128];
 	clear_board_local(local_board);
 	put_pieces_on_board_local(local_env, local_pos, local_board);
@@ -1739,8 +1839,6 @@ int get_value_from_alien_color_local(int *eval, int table_type, short_pieces_env
 
 int get_value_from_load_position_local(int *eval, int table_type, short_pieces_env *local_env, color_position *local_pos,
 	unsigned long local_index) {
-	if (*eval != 1)
-		*eval = get_standard_eval(table_type);
 	int result = get_value_from_own_color_local(eval, table_type, local_env, local_pos, local_index);
 	if (result == PROBE_NO_TABLE)
 		result = get_value_from_alien_color_local(eval, table_type, local_env, local_pos);

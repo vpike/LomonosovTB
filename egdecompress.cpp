@@ -244,6 +244,7 @@ unsigned long long compressed_file_bufferizer::get_piece_number() {
 		src_file = NULL;
 	}
 	if (file_number != current_file_number) {
+		current_file_number = file_number;
 		piece_table_loaded = false;
 		choose_src_file(); // virtual_files_shift loaded here
 		if (!not_caching) {
@@ -252,7 +253,6 @@ unsigned long long compressed_file_bufferizer::get_piece_number() {
 			mutex_unlock(read_bufferizer_mutexer);
 			src_file = NULL;
 		}
-		current_file_number = file_number;
 	}
 	unsigned char old_virtual_file_number = current_virtual_file_number;
 	calc_virtual_file_number();
@@ -934,9 +934,9 @@ bool compressed_file_bufferizer::begin_read(const char *filename, file_offset st
 	}
 #endif
 #ifdef LOMONOSOV_FULL
-	if ((arch_type & TB_DONT_CARE_BIT) && one_tern_in_byte)
+	if ((arch_type & TB_TERNARY) && (arch_type & TB_DONT_CARE_BIT) && one_tern_in_byte)
 		f_tern_in_byte = 1;
-	if ((arch_type & TB_DONT_CARE_BIT) && two_tern_in_byte)
+	if ((arch_type & TB_TERNARY) && (arch_type & TB_DONT_CARE_BIT) && two_tern_in_byte)
 		f_tern_in_byte = 2;
 #endif
 #ifdef USE_LZHAM

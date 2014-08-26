@@ -24,6 +24,12 @@
 #define NEXT_VALUE(mtm, dtz50) ((dtz50 && (mtm % 2 == 1)) ? (mtm + 3) : (mtm + 1))
 #define PREV_VALUE(mtm, dtz50) ((dtz50 && (mtm % 2 == 0)) ? (mtm - 3) : (mtm - 1))
 
+// set it before get_value_from_load_position_local, if want restrict and boost pl-probing
+#define NEED_IN_LOSE 4097 // it's logical, we need in lose forward positions, if this position is win
+#define NEED_IN_WIN 4096
+#define NEED_IN_SOME(win) (NEED_IN_WIN + win)
+#define REJECT_PROBE(win, eval) (NEED_IN_WIN + win == eval)
+
 typedef struct {
 	position cur_pos;
 	bool cur_wtm;
@@ -81,6 +87,9 @@ void get_output_tb_filename_local(char *tab_file, int kind, short_pieces_env *lo
 // Two digits in DL and ZDL: TL, DL and ZTL, ZDL.
 extern std::vector<int> types_vector[TYPES_COUNT];
 void init_types_vector();
+int get_max_pieces_count_extended(char table_type);
+
+void change_internal_value(int *eval, char table_type);
 
 // Adress to the array of existing tables.
 unsigned long get_table_index_local(bool wtm, short_pieces_env *local_env);

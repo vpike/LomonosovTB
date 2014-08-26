@@ -92,6 +92,7 @@ extern bool known_not_exist;
 extern char probe_missing_table_name[];
 extern unsigned char not_exist_tables[TYPES_COUNT][NOT_EXIST_TABLES_SIZE];
 
+void reset_not_exist_tables(bool all_exist);
 unsigned char get_bit_by_index(unsigned char *arr, int index);
 void set_bit_by_index(unsigned char *arr, int index, unsigned char value);
 void new_set_cur_table_not_exist(const char *path, int ternary_table);

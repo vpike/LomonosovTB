@@ -1,6 +1,29 @@
 #ifndef EGMAINTYPES_H_
 #define EGMAINTYPES_H_
 
+/*** table types: ***/
+// endgame table:
+#define ML		0
+#define WL		1
+#define TL		2
+#define PL		3
+#define DL		4
+// dtz50 table:
+#define ZML		5
+#define ZWL		6
+#define ZTL		7
+#define ZPL		8
+#define ZDL		9
+
+/*** probing results ***/
+#define PROBE_OK 0
+#define PROBE_NO_TABLE 1
+#define PROBE_INVALID_POSITION 2
+#define PROBE_NO_LOAD_FEN 3
+#define PROBE_UNKNOWN_TB_TYPE 4
+#define PROBE_OK_WITHOUT_VALUE 5
+#define PROBE_MATE 6
+
 #include "eginttypes.h"
 
 #ifndef DISABLE_PARALLEL_TB
@@ -103,42 +126,26 @@ typedef union {
 #endif
 #endif
 
-// table's types:
-// endgame table:
-#define ML		0
-#define WL		1
-#define TL		2
-#define PL		3
-#define DL		4
-// dtz50 table:
-#define ZML		5
-#define ZWL		6
-#define ZTL		7
-#define ZPL		8
-#define ZDL		9
-// bounds (for iteration)
+// bounds of table types (for iteration)
 #define DTZ50_BEGIN ZML
 #define MIN_TYPE ML
 #define MAX_TYPE ZDL
 #define TYPES_COUNT 10
 
-// used in check folder
+// table types used in check folder
 #define LM		10
 #define LT		11
 #define ZLM		12
 #define ZLT		13
 
-#define PROBE_OK 0
-#define PROBE_NO_TABLE 1
-#define PROBE_INVALID_POSITION 2
-#define PROBE_NO_LOAD_FEN 3
-#define PROBE_UNKNOWN_TB_TYPE 4
-#define PROBE_OK_WITHOUT_VALUE 5
-#define PROBE_MATE 6
-
 #define MUTABLE_TYPE(table_type) (table_type == WL || table_type == ZWL || table_type == PL || table_type == ZPL)
 #define DTM_TYPE(table_type) (table_type == ML || table_type == ZML || table_type == PL || table_type == ZPL)
 #define DTZ50_TYPE(table_type) (table_type >= DTZ50_BEGIN)
+#ifdef LOMONOSOV_FULL
+#define UNKNOWN_TB_TYPE(table_type) (table_type < MIN_TYPE || table_type > MAX_TYPE)
+#else
+#define UNKNOWN_TB_TYPE(table_type) (!MUTABLE_TYPE(table_type))
+#endif
 
 // index in endgame table
 typedef uint64_t TBINDEX;

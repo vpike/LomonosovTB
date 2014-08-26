@@ -247,6 +247,14 @@ bool known_not_exist = false;
 char probe_missing_table_name[16];
 unsigned char not_exist_tables[TYPES_COUNT][NOT_EXIST_TABLES_SIZE];
 
+void reset_not_exist_tables(bool all_exist) {
+	unsigned char byte = all_exist ? 0 : 0xff;
+	for (int i = MIN_TYPE; i <= MAX_TYPE; i++) {
+		memset(not_exist_tables[i], byte, NOT_EXIST_TABLES_SIZE);
+		min_block_size[i] = 0;
+	}
+}
+
 unsigned char get_bit_by_index(unsigned char *arr, int index) {
 	rwlock_rdlock(not_exist_tables_locker);
 	unsigned char val = arr[index / 8];

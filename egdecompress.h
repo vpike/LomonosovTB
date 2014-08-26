@@ -206,6 +206,9 @@ public:
 			set_buf_size(max_size_of_buf);
 	}
 	bool check_corrupted(unsigned long long piece_number);
+	bool dont_care() {
+		return arch_type & TB_DONT_CARE_BIT;
+	}
 
 	int get_size() {
 		return sizeof(compressed_file_bufferizer) + buf_size + strlen(org_file_name)+1 + compression_opts_size + 
