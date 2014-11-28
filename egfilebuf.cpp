@@ -36,7 +36,7 @@ bool read_file_bufferizer::begin_read(const char *filename, file_offset start_po
 	MPI_File_get_size(fh, &total_file_length);
 #else
 
-	#ifndef WIN32
+	#if !defined(WIN32) && !defined(__ANDROID__)
 	BUILD_BUG_ON(sizeof(off_t) < 8); // lseek MUST use 64-bit file offsets. check _LARGEFILE64_SOURCE and _FILE_OFFSET_BITS=64 defines
 	#endif
 

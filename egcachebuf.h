@@ -7,7 +7,8 @@
 #define EMPTY_CACHE				0
 #define COMPRESSED_IN_CACHE		1
 #define UNCOMPRESSED_IN_CACHE	2
-#define DEFAULT_CACHE_MODE COMPRESSED_IN_CACHE
+#define DEFAULT_CACHE_MODE		3
+extern char established_cache_mode;
 
 class cache_file_bufferizer: public compressed_file_bufferizer {
 private:
@@ -33,10 +34,13 @@ public:
 
 	bool begin_read(const char *filename, file_offset start_pos, file_offset length) {
 		bool res = compressed_file_bufferizer::begin_read(filename, start_pos, length/*, &cache_index*/);
-		if (arch_type & TB_FIX_COMP_SIZE) {
-			set_cache_mode(COMPRESSED_IN_CACHE);
+		if (established_cache_mode == DEFAULT_CACHE_MODE) {
+			if (arch_type & TB_FIX_COMP_SIZE) {
+				set_cache_mode(COMPRESSED_IN_CACHE);
+			} else
+				set_cache_mode(UNCOMPRESSED_IN_CACHE);
 		} else
-			set_cache_mode(UNCOMPRESSED_IN_CACHE);
+			set_cache_mode(established_cache_mode);
 		non_cache_buffer = buffer;
 		return res;
 	}
@@ -52,10 +56,10 @@ public:
 		cache_mode = mode;
 		probe_one_exact = false;
 		if (cache_mode == UNCOMPRESSED_IN_CACHE) {
-			if (cache_table_type == LM)
-				set_bit_shift_of_block(false);
-			else
+			if ((arch_type & TB_BINARY) || ((arch_type & TB_TERNARY) && !(arch_type & TB_FIX_COMP_SIZE)))
 				set_bit_shift_of_block(true);
+			else
+				set_bit_shift_of_block(false);
 		} else {
 			set_bit_shift_of_block(false);
 			if ((arch_type & TB_COMP_METHOD_MASK) == TB_RE_PAIR) {

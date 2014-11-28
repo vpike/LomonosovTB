@@ -50,7 +50,7 @@ void find_not_files() {
 			rwlock_unlock(paths_locker);
 			return;
 		}
-		tm *clock = gmtime(&(attrib.st_mtime));
+		tm *clock = gmtime((time_t *)&(attrib.st_mtime));
 		strcat(str, "\\*.* /");
 		char clock_str[150];
 		get_clock_str(clock, clock_str);
@@ -179,7 +179,7 @@ void explicit_get_max_pieces_count() {
 					find_not_files();
 					return;
 				}
-				clock = gmtime(&(attrib.st_mtime));
+				clock = gmtime((time_t *)&(attrib.st_mtime));
 				char time_path[150];
 				get_clock_str(clock, time_path);
 				if (strcmp(time_path, time_path_from_TB)) {

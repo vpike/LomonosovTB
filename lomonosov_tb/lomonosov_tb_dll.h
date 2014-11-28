@@ -26,40 +26,48 @@ table_type in clear_cache:
 6 - clear ZTL and ZDL
 */
 
+#define FUNC_SYNTAX extern "C" __declspec(dllexport)
+
 // initialization
-extern "C" __declspec(dllexport) bool APIENTRY __stdcall DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved);
+FUNC_SYNTAX bool APIENTRY __stdcall DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved);
 // control paths
-extern "C" __declspec(dllexport) void __stdcall dll_add_table_path(const char *path);
-extern "C" __declspec(dllexport) void __stdcall dll_set_table_path(const char *path);
+FUNC_SYNTAX void dll_add_table_path(const char *path);
+FUNC_SYNTAX void dll_set_table_path(const char *path);
 // control cache
-extern "C" __declspec(dllexport) void __stdcall dll_set_cache_size(int MB);
-extern "C" __declspec(dllexport) void __stdcall dll_clear_cache(char table_type);
-extern "C" __declspec(dllexport) void __stdcall dll_clear_cache_all();
+FUNC_SYNTAX void dll_set_cache_size(int MB);
+FUNC_SYNTAX void dll_clear_cache(char table_type);
+FUNC_SYNTAX void dll_clear_cache_all();
 // control order
-extern "C" __declspec(dllexport) bool __stdcall dll_set_table_order(const char *order); // return result of setting (true or false)
-extern "C" __declspec(dllexport) int __stdcall dll_get_table_order(char *order); // return count of orders
+FUNC_SYNTAX bool dll_set_table_order(const char *order); // return result of setting (true or false)
+FUNC_SYNTAX int dll_get_table_order(char *order); // return count of orders
 // scan tables & get max pieces count
-extern "C" __declspec(dllexport) int __stdcall dll_get_max_pieces_count(char table_type);
-extern "C" __declspec(dllexport) int __stdcall dll_get_max_pieces_count_with_order();
+FUNC_SYNTAX int dll_get_max_pieces_count(char table_type);
+FUNC_SYNTAX int dll_get_max_pieces_count_with_order();
 // table names
-extern "C" __declspec(dllexport) bool __stdcall dll_get_table_name(const char *fen, char *tbname);
-extern "C" __declspec(dllexport) void __stdcall dll_get_missing_table_name(char *tbname);
+FUNC_SYNTAX bool dll_get_table_name(const char *fen, char *tbname);
+FUNC_SYNTAX void dll_get_missing_table_name(char *tbname);
 // probe
-extern "C" __declspec(dllexport) int __stdcall dll_probe_fen(const char *fen, int *eval, char table_type);
-extern "C" __declspec(dllexport) int __stdcall dll_probe_fen_with_order(const char *fen, int *eval);
-extern "C" __declspec(dllexport) int __stdcall dll_probe_fen_dtmz50(const char *fen, int *eval);
-extern "C" __declspec(dllexport) int __stdcall dll_probe_position(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, int *eval, char table_type, unsigned char castlings = 0);
-extern "C" __declspec(dllexport) int __stdcall dll_probe_position_with_order(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, int *eval, unsigned char castlings = 0);
-extern "C" __declspec(dllexport) int __stdcall dll_probe_position_dtmz50(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, int *eval, unsigned char castlings = 0);
+FUNC_SYNTAX int dll_probe_fen(const char *fen, int *eval, char table_type);
+FUNC_SYNTAX int dll_probe_fen_with_order(const char *fen, int *eval, char *table_type = 0);
+FUNC_SYNTAX int dll_probe_fen_dtmz50(const char *fen, int *eval);
+FUNC_SYNTAX int dll_probe_position(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, int *eval, char table_type, unsigned char castlings = 0);
+FUNC_SYNTAX int dll_probe_position_with_order(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, int *eval, unsigned char castlings = 0, char *table_type = 0);
+FUNC_SYNTAX int dll_probe_position_dtmz50(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, int *eval, unsigned char castlings = 0);
 #ifndef TB_DLL_EXPORT
-extern "C" __declspec(dllexport) unsigned long long __stdcall dll_get_number_load_from_cache();
-extern "C" __declspec(dllexport) unsigned long long __stdcall dll_get_number_load_from_file();
-extern "C" __declspec(dllexport) unsigned long long __stdcall dll_get_number_pop_from_cache();
-extern "C" __declspec(dllexport) unsigned long long __stdcall dll_get_number_in_cache();
-extern "C" __declspec(dllexport) unsigned long long __stdcall dll_get_cache_size();
-extern "C" __declspec(dllexport) unsigned long long __stdcall dll_get_hidden_size();
-extern "C" __declspec(dllexport) void __stdcall dll_set_logging(bool logging);
-extern "C" __declspec(dllexport) void __stdcall dll_set_hidden_cache_clean_percent(int percent);
-extern "C" __declspec(dllexport) void __stdcall dll_print_statistics(const char *file_name);
-extern "C" __declspec(dllexport) int __stdcall dll_probe_fen_special_mate_state(const char *fen, int *eval, char table_type);
+FUNC_SYNTAX unsigned long long dll_get_number_load_from_cache();
+FUNC_SYNTAX unsigned long long dll_get_number_load_from_file();
+FUNC_SYNTAX unsigned long long dll_get_number_pop_from_cache();
+FUNC_SYNTAX unsigned long long dll_get_number_in_cache();
+FUNC_SYNTAX unsigned long long dll_get_cache_size();
+FUNC_SYNTAX unsigned long long dll_get_hidden_size();
+FUNC_SYNTAX void dll_set_logging(bool logging);
+FUNC_SYNTAX void dll_set_hidden_cache_clean_percent(int percent);
+FUNC_SYNTAX void dll_print_statistics(const char *file_name);
+FUNC_SYNTAX int dll_probe_fen_special_mate_state(const char *fen, int *eval, char table_type);
+// long probes. Be sure that size of moves is large enough.
+FUNC_SYNTAX int dll_get_tree_fen(const char *fen, char *moves, char table_type);
+FUNC_SYNTAX int dll_get_tree_bounded_fen(const char *fen, char *moves, char table_type, int best_bound, int mid_bound, int worse_bound);
+FUNC_SYNTAX int dll_get_best_move_fen(const char *fen, char *move, char table_type);
+FUNC_SYNTAX int dll_get_line_fen(const char *fen, char *moves, char table_type);
+FUNC_SYNTAX int dll_get_line_bounded_fen(const char *fen, char *moves, char table_type, int moves_bound);
 #endif

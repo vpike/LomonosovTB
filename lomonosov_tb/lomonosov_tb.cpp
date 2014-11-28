@@ -4,6 +4,7 @@
 #include "../egmaintypes.h"
 #include "../egpglobals.h"
 #include "../egintflocal.h"
+#include "../eglongprobes.h"
 #include "../egcachecontrol.h"
 #include "../egtbfile.h"
 #include "../egtbscanner.h"
@@ -75,8 +76,10 @@ void add_table_path(const char *path) {
 		size = strcspn(tmp_path, ";");
 		line = strncpy(line, tmp_path, size);
 		line[size] = '\0';
-		if (line[size - 1] != '\\')
-			line = strcat(line, "\\");
+		if (line[size - 1] != PATH_SEPAR) {
+			line[size] = PATH_SEPAR;
+			line[size+1] = '\0';
+		}
 		char *tmp_line = (char *)malloc((strlen(line)+1)*sizeof(char));
 		strcpy(tmp_line, line);
 		table_paths.push_back(tmp_line);
@@ -219,7 +222,7 @@ bool get_table_name(const char *fen, char *tbname) {
 }
 
 void get_missing_table_name(char *tbname) {
-	sprintf(tbname, probe_missing_table_name);
+	strcpy(tbname, probe_missing_table_name);
 }
 
 int probe_fen(const char *fen, int *eval, char table_type) {
@@ -255,5 +258,185 @@ int probe_position(int side, unsigned int *psqW, unsigned int *psqB, int *piCoun
 	unsigned long local_index;
 	result = get_value_from_position_local(side, psqW, psqB, piCount, sqEnP, eval, table_type, &local_env, &local_pos, &local_index);
 	change_internal_value(eval, table_type);
+	return result;
+}
+
+int get_tree_fen(const char *fen, std::string *moves, char table_type) {
+	return get_tree_bounded_fen(fen, moves, table_type, 1024, 1024, 1024);
+}
+
+int get_tree_bounded_fen(const char *fen, std::string *moves, char table_type, int best_bound, int mid_bound, int worse_bound) {
+	if (UNKNOWN_TB_TYPE(table_type))
+		return PROBE_UNKNOWN_TB_TYPE;
+	int result;
+	result = PROBE_NO_TABLE;
+	short_pieces_env local_env;
+	unsigned char pcs_local[MAX_MEN];
+	local_env.men_count = 0;
+	local_env.pieces = pcs_local;
+	local_env.indexer = NULL;
+	color_position local_pos;
+	unsigned long local_index;
+	bool need_invert;
+	result = parse_fen(fen, &local_env, &local_pos, &need_invert);
+	if (result != PROBE_OK)
+		return result;
+	vector<move_valued> moves_valued;
+	result = get_tree_from_load_position_local(&moves_valued, table_type, &local_env, &local_pos, need_invert);
+	moves->clear();
+	int bounds[3] = {best_bound, mid_bound, worse_bound};
+	int b = 0, cnt = 0;
+	for (int i = 0; i < moves_valued.size(); i++) {
+		if (i > 0 && sign(moves_valued[i-1].value) != sign(moves_valued[i].value)) {
+			b += sign(moves_valued[i].value) - sign(moves_valued[i-1].value);
+			cnt = 0;
+		}
+		if (cnt < bounds[b]) {
+			if (moves->size() > 0)
+				moves->append(";");
+			moves->append(move_valued_to_string(moves_valued[i]));
+			cnt++;
+		}
+	}
+	return result;
+}
+
+int get_tree_position(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, std::string *moves, char table_type, unsigned char castlings) {
+	if (UNKNOWN_TB_TYPE(table_type))
+		return PROBE_UNKNOWN_TB_TYPE;
+	int result;
+	result = PROBE_NO_TABLE;
+	short_pieces_env local_env;
+	unsigned char pcs_local[MAX_MEN];
+	local_env.men_count = 0;
+	local_env.pieces = pcs_local;
+	local_env.indexer = NULL;
+	color_position local_pos;
+	unsigned long local_index;
+	bool need_invert;
+	result = parse_position(side, psqW, psqB, piCount, sqEnP, &local_env, &local_pos, &need_invert);
+	if (result != PROBE_OK)
+		return result;
+	vector<move_valued> moves_valued;
+	result = get_tree_from_load_position_local(&moves_valued, table_type, &local_env, &local_pos, need_invert);
+	moves->clear();
+	for (int i = 0; i < moves_valued.size(); i++) {
+		if (moves->size() > 0)
+			moves->append(";");
+		moves->append(move_valued_to_string(moves_valued[i]));
+	}
+	return result;
+}
+
+int get_best_move_fen(const char *fen, std::string *move, char table_type) {
+	if (UNKNOWN_TB_TYPE(table_type))
+		return PROBE_UNKNOWN_TB_TYPE;
+	int result;
+	result = PROBE_NO_TABLE;
+	short_pieces_env local_env;
+	unsigned char pcs_local[MAX_MEN];
+	local_env.men_count = 0;
+	local_env.pieces = pcs_local;
+	local_env.indexer = NULL;
+	color_position local_pos;
+	bool need_invert;
+	result = parse_fen(fen, &local_env, &local_pos, &need_invert);
+	if (result != PROBE_OK)
+		return result;
+	int eval;
+	unsigned long local_index = get_table_index_local(local_pos.cur_wtm, &local_env);
+	result = get_value_from_load_position_local(&eval, table_type, &local_env, &local_pos, local_index);
+	if (result != PROBE_OK)
+		return result;
+	move_valued res_move_valued;
+	result = get_best_move_from_load_position_local(&res_move_valued, eval, table_type, &local_env, &local_pos, need_invert);
+	if (result == PROBE_OK) {
+		move->clear();
+		move->append(move_valued_to_string(res_move_valued));
+	}
+	return result;
+}
+
+int get_line_fen(const char *fen, std::string *moves, char table_type) {
+	return get_line_bounded_fen(fen, moves, table_type, 8192);
+}
+
+int get_line_bounded_fen(const char *fen, std::string *moves, char table_type, int moves_bound) {
+	if (UNKNOWN_TB_TYPE(table_type))
+		return PROBE_UNKNOWN_TB_TYPE;
+	int result;
+	result = PROBE_NO_TABLE;
+	short_pieces_env local_env;
+	unsigned char pcs_local[MAX_MEN];
+	local_env.men_count = 0;
+	local_env.pieces = pcs_local;
+	local_env.indexer = NULL;
+	color_position local_pos;
+	bool need_invert;
+	result = parse_fen(fen, &local_env, &local_pos, &need_invert);
+	int with_number = (local_pos.cur_wtm ? 0 : 1);
+	if (need_invert)
+		with_number ^= 1;
+	if (result != PROBE_OK)
+		return result;
+	int eval;
+	unsigned long local_index = get_table_index_local(local_pos.cur_wtm, &local_env);
+	result = get_value_from_load_position_local(&eval, table_type, &local_env, &local_pos, local_index);
+	if (result != PROBE_OK)
+		return result;
+	vector<move_valued> moves_valued;
+	result = get_line_from_load_position_local(&moves_valued, eval, table_type, &local_env, &local_pos, need_invert, moves_bound);
+	moves->clear();
+	for (int i = 0; i < moves_valued.size(); i++) {
+		if (moves->size() > 0)
+			moves->append(" ");
+		if (i == 0 || (i & 1) == with_number) {
+			char str_num[10];
+			sprintf(str_num, "%d", (i + 3) / 2);
+			moves->append(str_num);
+			moves->append(((i & 1) == with_number) ? "." : "...");
+		}
+		moves->append(move_valued_to_string(moves_valued[i]));
+	}
+	return result;
+}
+
+int get_line_position(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, std::string *moves, char table_type, unsigned char castlings) {
+	if (UNKNOWN_TB_TYPE(table_type))
+		return PROBE_UNKNOWN_TB_TYPE;
+	int result;
+	result = PROBE_NO_TABLE;
+	short_pieces_env local_env;
+	unsigned char pcs_local[MAX_MEN];
+	local_env.men_count = 0;
+	local_env.pieces = pcs_local;
+	local_env.indexer = NULL;
+	color_position local_pos;
+	bool need_invert;
+	result = parse_position(side, psqW, psqB, piCount, sqEnP, &local_env, &local_pos, &need_invert);
+	int with_number = (local_pos.cur_wtm ? 0 : 1);
+	if (need_invert)
+		with_number ^= 1;
+	if (result != PROBE_OK)
+		return result;
+	int eval;
+	unsigned long local_index = get_table_index_local(local_pos.cur_wtm, &local_env);
+	result = get_value_from_load_position_local(&eval, table_type, &local_env, &local_pos, local_index);
+	if (result != PROBE_OK)
+		return result;
+	vector<move_valued> moves_valued;
+	result = get_line_from_load_position_local(&moves_valued, eval, table_type, &local_env, &local_pos, need_invert, 8192);
+	moves->clear();
+	for (int i = 0; i < moves_valued.size(); i++) {
+		if (moves->size() > 0)
+			moves->append(" ");
+		if (i == 0 || (i & 1) == with_number) {
+			char str_num[10];
+			sprintf(str_num, "%d", (i + 3) / 2);
+			moves->append(str_num);
+			moves->append((i == 0) ? "..." : ".");
+		}
+		moves->append(move_valued_to_string(moves_valued[i]));
+	}
 	return result;
 }

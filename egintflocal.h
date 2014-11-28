@@ -8,11 +8,13 @@
 
 // Values, returned by get_value_...:
 // In dtm:
+// -1 - draw
 // 0 - mate, 0 moves to mate
 // 1 -  win, 1 moves to mate
 // 2 - lose, 2 moves to mate
 // ...
 // In dtz50:
+// -1 - draw
 // 0 - mate, 0 moves
 // 1 -  win, 1 move to capture/pawn move
 // 2 - lose, 1 move to c.
@@ -27,7 +29,7 @@
 // set it before get_value_from_load_position_local, if want restrict and boost pl-probing
 #define NEED_IN_LOSE 4097 // it's logical, we need in lose forward positions, if this position is win
 #define NEED_IN_WIN 4096
-#define NEED_IN_SOME(win) (NEED_IN_WIN + win)
+#define REJECT_SOME(win) (NEED_IN_WIN + win)
 #define REJECT_PROBE(win, eval) (NEED_IN_WIN + win == eval)
 
 typedef struct {
@@ -47,7 +49,9 @@ int get_invert_pslice(position *pos, unsigned char *local_pieces, int local_men_
 void invert_position(position *pos, int local_men_count);
 void invert_colors(position *pos, int local_white_pieces);
 void position_to_minor_env(short_pieces_env *local_env, color_position *local_pos, short_pieces_env *minor_env, 
-	color_position *minor_pos, int capture, unsigned long promote_pc);
+	color_position *minor_pos, int capture, unsigned long promote_pc, bool *was_invert = 0);
+bool gen_forward_moves_all_local(short_pieces_env *local_env, color_position *local_pos, unsigned char *local_board,
+	char *search_results, int table_type, forward_move_func_local *func);
 bool gen_forward_moves_capture_local(short_pieces_env *local_env, color_position *local_pos, unsigned char *local_board,
 	char *search_results, int table_type, forward_move_func_local *func);
 
@@ -68,6 +72,12 @@ int get_value_from_fen_local(const char *fen, int *eval, int table_type, short_p
 // Get the value from the lomonosov position.
 int get_value_from_position_local(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, int *eval,
 	int table_type, short_pieces_env *local_env, color_position *local_pos, unsigned long *local_index);
+
+// Parse position to the internal type of position
+int parse_fen(const char *fen, short_pieces_env *local_env, color_position *local_pos, bool *was_invert = 0);
+int parse_position(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, 
+	short_pieces_env *local_env, color_position *local_pos, bool *was_invert = 0);
+
 
 // Next functions convert fen and lomonosov position to internal position type.
 // For the correct using see get_value_from_fen_local and get_value_from_position_local.

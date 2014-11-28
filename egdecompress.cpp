@@ -310,6 +310,7 @@ size_t compressed_file_bufferizer::read_compressed_buffer(char **compressed_buff
 		src_file->seek(get_header_size() + (*piece_number + (unsigned long long)current_virtual_file_number * VIRTUAL_FILE_BLOCKS_COUNT) * uncompr_piece_size);
 	else
 		src_file->seek(piece_offsets[*piece_number]);
+	memset(compr_buffer, 0, compr_size);
 	src_file->read(compr_buffer, piece_size);
 	if (!not_caching) {
 		mutex_lock(read_bufferizer_mutexer);

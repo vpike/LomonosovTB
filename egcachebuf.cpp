@@ -6,6 +6,8 @@
 #include "egglobals.h"
 #endif
 
+char established_cache_mode = DEFAULT_CACHE_MODE;
+
 cache_file_bufferizer::cache_file_bufferizer(int index, int table_type) {
 	current_buffer_from_cache = false;
 	non_cache_buffer = NULL;
@@ -81,20 +83,12 @@ void cache_file_bufferizer::read_buffer() {
 		compressed_file_bufferizer::read_buffer(/*&cache_index*/);
 		return;
 	}
-
-	unsigned long long piece_number;
-	size_t org_size;
-	file_offset piece_start_offset;
 	
 	if (cur_file_pos_read >= end_file_pos) return;
 	
-	piece_number = cur_file_pos_read / uncompr_piece_size;
-	piece_start_offset = piece_number * uncompr_piece_size;
-	unsigned long long piece_number_for_cache = piece_number;
-	org_size = uncompr_piece_size;
-	// if it's the last piece, it may have different size
-	if (piece_start_offset + uncompr_piece_size >= total_file_length)
-		org_size = total_file_length - piece_start_offset;
+	unsigned long long piece_number = get_piece_number();
+	unsigned long long real_piece_number = piece_number + (unsigned long long)pieces_per_file * (unsigned long long)current_file_number
+		+ (unsigned long long)current_virtual_file_number * VIRTUAL_FILE_BLOCKS_COUNT;
 
 	if (current_buffer_from_cache) {
 		char *block_counter = buffer - 1;
@@ -104,12 +98,12 @@ void cache_file_bufferizer::read_buffer() {
 			free(block_counter);
 		mutex_unlock(block_counter_mutexer);
 	}
-	if (!global_cache.find(cache_index, piece_number_for_cache, cache_table_type, &buffer, &bytes_in_buffer)) {
+	if (!global_cache.find(cache_index, real_piece_number, cache_table_type, &buffer, &bytes_in_buffer)) {
 		buffer = non_cache_buffer;
 		current_buffer_from_cache = false;
 		compressed_file_bufferizer::read_buffer(/*&cache_index*/);
-		if (arch_type & TB_BINARY && bit_shift_of_block) {
-			unsigned long bit_size = org_size * bits_for_record;
+		if ((arch_type & TB_BINARY) && bit_shift_of_block) {
+			unsigned long bit_size = bytes_in_buffer * bits_for_record;
 			unsigned long byte_size;
 			if (bits_for_record <= 8) {
 				byte_size = (bit_size + 7) >> 3;
@@ -117,11 +111,9 @@ void cache_file_bufferizer::read_buffer() {
 			else {
 				byte_size = (bit_size + 15) >> 4;
 			}
-			global_cache.insert(cache_index, piece_number_for_cache, cache_table_type, buffer, byte_size, cache_index);
-		} if ((arch_type & TB_COMP_METHOD_MASK) == TB_RE_PAIR && bit_shift_of_block)
-			global_cache.insert(cache_index, piece_number_for_cache, cache_table_type, buffer, (org_size + 4) / 5, cache_index);
-		else
-			global_cache.insert(cache_index, piece_number_for_cache, cache_table_type, buffer, org_size, cache_index);
+			global_cache.insert(cache_index, real_piece_number, cache_table_type, buffer, byte_size, cache_index);
+		} else
+			global_cache.insert(cache_index, real_piece_number, cache_table_type, buffer, bytes_in_buffer, cache_index);
 		return;
 	}
 	char *block_counter = buffer - 1;
@@ -133,11 +125,10 @@ void cache_file_bufferizer::read_buffer() {
 	block_counter[0]++;
 	mutex_unlock(block_counter_mutexer);
 	current_buffer_from_cache = true;
-	bytes_in_buffer = org_size;
+	file_offset piece_start_offset = (arch_type & TB_FIX_COMP_SIZE) ? piece_offsets[piece_number] : (piece_number * uncompr_piece_size);
 	buf_pos = cur_file_pos_read - piece_start_offset;
 	if ((arch_type & TB_TERNARY) && (arch_type & TB_COMP_METHOD_MASK) == TB_RE_PAIR && bit_shift_of_block) {
 		buf_pos = buf_pos / 5;
-		bytes_in_buffer = (bytes_in_buffer + 4) / 5;
 	}
 	if (arch_type & TB_BINARY) {
 		if (bits_for_record <= 8) {
@@ -149,7 +140,7 @@ void cache_file_bufferizer::read_buffer() {
 			if (buf_pos & 1) --buf_pos;
 		}
 	}
-	cur_file_pos_read = piece_start_offset + org_size;
+	cur_file_pos_read = piece_start_offset + bytes_in_buffer;
 }
 
 bool cache_file_bufferizer::new_src_file(unsigned int file_number) {

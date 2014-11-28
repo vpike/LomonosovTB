@@ -246,6 +246,7 @@
     <ClCompile Include="..\egcachebuf.cpp" />
     <ClCompile Include="..\egdecompress.cpp" />
     <ClCompile Include="..\egfilebuf.cpp" />
+    <ClCompile Include="..\eglongprobes.cpp" />
     <ClCompile Include="..\egsindex.cpp" />
     <ClCompile Include="..\egpglobals.cpp" />
     <ClCompile Include="..\egtbfile.cpp" />
@@ -255,6 +256,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\egcachecontrol.h" />
+    <ClInclude Include="..\eglongprobes.h" />
     <ClInclude Include="..\egmaintypes.h" />
     <ClInclude Include="..\egdecompre-pair.h" />
     <ClInclude Include="..\egintflocal.h" />

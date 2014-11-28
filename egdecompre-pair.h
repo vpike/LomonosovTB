@@ -55,13 +55,12 @@ class HuffmanCode {
 	};
 };
 
+#define BITS_PER_STEP 64
+#define BITS_PER_STEP_MASK 0x3f
+
 class HuffmanCodeDecompressor : HuffmanCode {
 private:
-#ifdef _M_X64
-	uint64_t *data_;
-#else
-	uint32_t *data_;
-#endif
+	char *data_;
 	// map[canonical] -> symbol (opposite to sym_to_canonical_map_)
 	std::vector<Symbol> canonical_to_sym_map_;
 	HuffmanLength min_len;
@@ -69,15 +68,20 @@ private:
 
 	// current information for reading
 	uint8_t bit_shift;
+
+	uint64_t get_data() {
+		uint64_t res;
+		memcpy(&res, data_, BITS_PER_STEP / 8);
+		return res;
+	}
+	void skip_data() {
+		data_ += BITS_PER_STEP / 8;
+	}
 public:
 	void BuildFromCodeLength(const char *code_length, size_t num_symbols);
 	// class needs to init before every decompressing
 	void InitBlock(const char *data) {
-#ifdef _M_X64
-		data_ = (uint64_t *)data;
-#else
-		data_ = (uint32_t *)data;
-#endif
+		data_ = (char *)data;
 		bit_shift = 0;
 	}
 	Symbol GetNextSymbol();

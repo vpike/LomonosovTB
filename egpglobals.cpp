@@ -252,6 +252,7 @@ void reset_not_exist_tables(bool all_exist) {
 	for (int i = MIN_TYPE; i <= MAX_TYPE; i++) {
 		memset(not_exist_tables[i], byte, NOT_EXIST_TABLES_SIZE);
 		min_block_size[i] = 0;
+		max_pieces_count[i] = 0;
 	}
 }
 
@@ -298,7 +299,7 @@ unsigned long get_table_index_by_filename(const char *table_name) {
 	int i, str_len = strlen(table_name), volume_number = 1, table_color = 1;
 	i = str_len;
 	// find filename
-	while (i > 0 && table_name[i] != '\\')
+	while (i > 0 && table_name[i] != PATH_SEPAR)
 		--i;
 	while (table_name[i] != 'k' && i < str_len)
 	++i;

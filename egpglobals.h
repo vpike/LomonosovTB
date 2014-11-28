@@ -5,6 +5,12 @@
 #include "egmaintypes.h"
 #include "egfilebuf.h"
 
+#if defined(_WIN32) || defined(_WIN64)
+#define PATH_SEPAR '\\'
+#else
+#define PATH_SEPAR '/'
+#endif
+
 #define PD_MOVE 0
 #define PD_PROMO_RANK 1
 #define PD_FIRST_RANK 2

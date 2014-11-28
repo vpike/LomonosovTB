@@ -1,18 +1,21 @@
 #ifndef EGCACHECONTROL_H_
 #define EGCACHECONTROL_H_
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(__ANDROID__) || defined(__MINGW32__)
 #include <unordered_map>
 #else
 #include <tr1/unordered_map>
-using namespace std::tr1;
 #endif
 #include "egmaintypes.h"
 #include "egfilebuf.h"
 #include "egcache.h"
 #include "egcachebuf.h"
 
+#if defined(_MSC_VER) || defined(__MINGW32__)
 using namespace std;
+#else
+using namespace std::tr1;
+#endif
 
 class piece_offsets_list {
 public:

@@ -23,6 +23,7 @@
 #define PROBE_UNKNOWN_TB_TYPE 4
 #define PROBE_OK_WITHOUT_VALUE 5
 #define PROBE_MATE 6
+#define PROBE_NOT_FINISHED 7
 
 #include "eginttypes.h"
 

@@ -42,14 +42,6 @@ void HuffmanCode::BuildCanonicalCode() {
 	}
 }
 
-#ifdef _M_X64
-#define BITS_PER_STEP 64
-#define BITS_PER_STEP_MASK 0x3f
-#else
-#define BITS_PER_STEP 32
-#define BITS_PER_STEP_MASK 0x1f
-#endif
-
 void HuffmanCodeDecompressor::BuildFromCodeLength(const char *code_length, size_t num_symbols) {
 	num_symbols_ = num_symbols;
 	code_length_.resize(num_symbols_);
@@ -82,19 +74,19 @@ void HuffmanCodeDecompressor::BuildFromCodeLength(const char *code_length, size_
 }
 
 inline Symbol HuffmanCodeDecompressor::GetNextSymbol() {
-	HuffmanBits code = (*data_) << bit_shift;
+	HuffmanBits code = get_data() << bit_shift;
 	HuffmanLength len = min_len;
 	if ((bit_shift + len) >= BITS_PER_STEP) {
-		++data_;
-		code |= ((*data_) >> (BITS_PER_STEP - bit_shift));
+		skip_data();
+		code |= (get_data() >> (BITS_PER_STEP - bit_shift));
 	}
 	while (code >= length_base_code_[len + 1] && length_base_code_[len + 1] < (HuffmanBits)(-1)) {
 		++len;
 		if (len > kMaxHuffmanBits)
 			return kInvalidSymbol;
 		if (((bit_shift + len) & BITS_PER_STEP_MASK) == 0) {
-			++data_;
-			code |= ((*data_) >> len);
+			skip_data();
+			code |= (get_data() >> len);
 		}
 	}
 	bit_shift = (bit_shift + len) & BITS_PER_STEP_MASK;
@@ -130,12 +122,11 @@ bool RePairDecompressor::QuickDecompressPiece(char *in, char *out, size_t needed
 }
 
 bool RePairDecompressor::DecompressPiece(char *in, char *out, size_t block_size) {
-	if (!one_byte_mode_) {
-		printf("RePairDecompressor::DecompressPiece: cannot decompress two byte entries!\n");
-		return false;
-	}
 	uint8_t *data_ = (uint8_t *)out;
+	uint16_t *data16_ = (uint16_t *)out;
 	memset(data_, 0, block_size);
+	if (!one_byte_mode_)
+		block_size >>= 1;
 	huffman_code_.InitBlock(in);
 	size_t cur_size = 0;
 	Symbol *stack = (Symbol *)malloc(block_size * sizeof(Symbol));
@@ -154,7 +145,10 @@ bool RePairDecompressor::DecompressPiece(char *in, char *out, size_t block_size)
 					free(stack);
 					return false;
 				}
-				out[cur_size] = m->first;
+				if (one_byte_mode_)
+					data_[cur_size] = m->first;
+				else
+					data16_[cur_size] = m->first;
 				--stack_cnt;
 				++cur_size;
 			} else {
