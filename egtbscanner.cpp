@@ -29,10 +29,7 @@ void get_clock_str(tm *clock, char *str) {
 //return 0 if error and lenght max pieces if success
 void find_not_files() {
 	char str[MAX_PATH], cur_path[MAX_PATH];
-	rwlock_rdlock(paths_locker);
-	rwlock_wrlock(not_exist_tables_locker);
 	reset_not_exist_tables(false);
-	rwlock_unlock(not_exist_tables_locker);
 	// cur_path = current directory (is it true?)
 	strcpy(cur_path, "TB_error.txt");
 	if (!access(cur_path, 0)) unlink(cur_path);
@@ -44,21 +41,25 @@ void find_not_files() {
 	while (it_paths != table_paths.end()) {
 		strcpy(str, *it_paths);
 		str[strlen(str) - 1] = '\0';
-		struct stat attrib;
-		if (stat(str, &attrib)) {
-			fclose(TB_file);
-			rwlock_unlock(paths_locker);
-			return;
-		}
-		tm *clock = gmtime((time_t *)&(attrib.st_mtime));
-		strcat(str, "\\*.* /");
 		char clock_str[150];
-		get_clock_str(clock, clock_str);
+		struct stat attrib;
+		int stat_res;
+		if (stat_res = stat(str, &attrib)) {
+			sprintf(clock_str, "NOT_EXIST");
+		} else {
+			tm *clock = gmtime((time_t *)&(attrib.st_mtime));
+			get_clock_str(clock, clock_str);
+		}
+		strcat(str, "\\*.* /");
 		strcat(str, clock_str);
 		int len = strlen(str);
 		str[len] = '/';
 		str[len+1] = '\0';
 		fprintf(TB_file, "%s\n", str);
+		if (stat_res) {
+			it_paths++;
+			continue;
+		}
 		dirent *drnt;
 		DIR *dir = opendir(*it_paths);
 		int extension_length;
@@ -108,23 +109,19 @@ void find_not_files() {
 		closedir(dir);
 		it_paths++;
 	}
-	rwlock_unlock(paths_locker);
 	strncpy(str, "//", 2);
 	for (table_type = MIN_TYPE; table_type <= MAX_TYPE; table_type++)
 		str[table_type+2] = '0' + max_pieces_count[table_type];
 	str[table_type+2] = '\0';
 	fprintf(TB_file, "%s\n", str);
-	rwlock_rdlock(not_exist_tables_locker);
 	for (table_type = MIN_TYPE; table_type <= MAX_TYPE; table_type++) {
 		for (unsigned int i = 0; i < NOT_EXIST_TABLES_SIZE; ++i) {
 			if (fwrite(&not_exist_tables[table_type][i], sizeof(char), 1, TB_file) != 1) {
-				rwlock_unlock(not_exist_tables_locker);
 				fclose(TB_file);
 				return;
 			}
 		}
 	}
-	rwlock_unlock(not_exist_tables_locker);
 	for (table_type = MIN_TYPE; table_type <= MAX_TYPE; table_type++)
 		fwrite(&min_block_size[table_type], sizeof(unsigned long), 1, TB_file);
 	fclose(TB_file);
@@ -148,12 +145,9 @@ void explicit_get_max_pieces_count() {
 		find_not_files();
 		return;
 	}
-	rwlock_wrlock(not_exist_tables_locker);
 	reset_not_exist_tables(false);
-	rwlock_unlock(not_exist_tables_locker);
 	char str[MAX_PATH];
 	bool fl = true;
-	rwlock_rdlock(paths_locker);
 	list<char *>::iterator it_paths = table_paths.begin();
 	while (fl) {
 		if (fgets(str, MAX_PATH, TB_file)) {
@@ -163,7 +157,6 @@ void explicit_get_max_pieces_count() {
 				str[separ - 3] = '\0';
 				if (it_paths == table_paths.end() || strcmp(str, *it_paths)) {
 					fclose(TB_file);
-					rwlock_unlock(paths_locker);
 					find_not_files();
 					return;
 				}
@@ -171,20 +164,17 @@ void explicit_get_max_pieces_count() {
 				it_paths++;
 				separ = strcspn(time_path_from_TB, "/");
 				time_path_from_TB[separ] = '\0';
+				char time_path[150];
 				struct tm* clock;
 				struct stat attrib;
 				if (stat(str, &attrib)) {
-					fclose(TB_file);
-					rwlock_unlock(paths_locker);
-					find_not_files();
-					return;
+					sprintf(time_path, "NOT_EXIST");
+				} else {
+					clock = gmtime((time_t *)&(attrib.st_mtime));
+					get_clock_str(clock, time_path);
 				}
-				clock = gmtime((time_t *)&(attrib.st_mtime));
-				char time_path[150];
-				get_clock_str(clock, time_path);
 				if (strcmp(time_path, time_path_from_TB)) {
 					fclose(TB_file);
-					rwlock_unlock(paths_locker);
 					find_not_files();
 					return;
 				}
@@ -195,19 +185,15 @@ void explicit_get_max_pieces_count() {
 			}
 		} else {
 			fclose(TB_file);
-			rwlock_unlock(paths_locker);
 			find_not_files();
 			return;
 		}
 	}
 	if (it_paths != table_paths.end()) {
 		fclose(TB_file);
-		rwlock_unlock(paths_locker);
 		find_not_files();
 		return;
 	}
-	rwlock_unlock(paths_locker);
-	rwlock_wrlock(not_exist_tables_locker);
 	fl = false;
 	for (int table_type = MIN_TYPE; table_type <= MAX_TYPE && !fl; table_type++) {
 		unsigned int index = 0;
@@ -217,7 +203,6 @@ void explicit_get_max_pieces_count() {
 			++index;
 		}
 	}
-	rwlock_unlock(not_exist_tables_locker);
 	for (int table_type = MIN_TYPE; table_type <= MAX_TYPE && !fl; table_type++) {
 		fl = (fread(&min_block_size[table_type], sizeof(unsigned long), 1, TB_file) != 1);
 	}

@@ -12,9 +12,10 @@ struct move_valued {
 };
 
 int sign(int value);
-std::string move_valued_to_string(move_valued move);
+std::string move_valued_to_string(move_valued move, bool print_error_code = false);
 
 int get_tree_from_load_position_local(vector<move_valued> *moves, int table_type, short_pieces_env *local_env, color_position *local_pos, bool need_invert);
+int get_cells_from_load_position_local(vector<move_valued> *moves, int table_type, short_pieces_env *local_env, color_position *local_pos, unsigned char sq_from, bool need_invert);
 int get_best_move_from_load_position_local(move_valued *move, int eval, int table_type, short_pieces_env *local_env, color_position *local_pos, bool need_invert);
 int get_line_from_load_position_local(vector<move_valued> *moves, int eval, int table_type, short_pieces_env *local_env, color_position *local_pos, bool need_invert, int moves_bound);
 

@@ -47,6 +47,13 @@ void invert_position(position *pos, int local_men_count) {
 			pos->piece_pos[i] ^= 0x70;
 }
 
+void invert_position_diag(position *pos, int local_men_count) {
+	for (int i = 0; i < local_men_count; i++)
+		if (pos->piece_pos[i] != BOX) {
+			pos->piece_pos[i] = ((pos->piece_pos[i] & 0x07) << 4) | ((pos->piece_pos[i] & 0x70) >> 4);
+		}
+}
+
 #ifdef _MSC_VER
 inline void invert_colors(position *pos, int local_white_pieces) {
 #else
@@ -317,7 +324,7 @@ bool gen_forward_moves_all_local(short_pieces_env *local_env, color_position *lo
 						}
 					}
 					else {
-						for (unsigned char promote_pc = KNIGHT; promote_pc <= QUEEN; promote_pc++) {
+						for (unsigned char promote_pc = QUEEN; promote_pc >= KNIGHT; promote_pc--) {
 							if (promote_pc != KING) {
 								if (func && (!func(local_env, local_pos, search_results, EMPTY, promote_pc, table_type) || search_results[0])) {
 									local_pos->cur_pos.piece_pos[i] = j0;
@@ -423,7 +430,7 @@ bool gen_forward_moves_all_local(short_pieces_env *local_env, color_position *lo
 							}
 						}
 						else {
-							for (unsigned char promote_pc = KNIGHT; promote_pc <= QUEEN; promote_pc++) {
+							for (unsigned char promote_pc = QUEEN; promote_pc >= KNIGHT; promote_pc--) {
 								if (promote_pc != KING) {
 									if (func && (!func(local_env, local_pos, search_results, p, promote_pc, table_type) || search_results[0])) {
 										local_pos->cur_pos.piece_pos[i] = j0;
@@ -490,7 +497,7 @@ bool gen_forward_moves_check_local(short_pieces_env *local_env, color_position *
 						}
 					}
 					else {
-						for (unsigned char promote_pc = KNIGHT; promote_pc <= QUEEN; promote_pc++)
+						for (unsigned char promote_pc = QUEEN; promote_pc >= KNIGHT; promote_pc--)
 							if (promote_pc != KING) {
 								local_env->pieces[i] = promote_pc;
 								if (is_check_local(local_env, &local_pos->cur_pos, !local_pos->cur_wtm) && 
@@ -580,7 +587,7 @@ bool gen_forward_moves_check_local(short_pieces_env *local_env, color_position *
 							}
 						}
 						else {
-							for (unsigned char promote_pc = KNIGHT; promote_pc <= QUEEN; promote_pc++) {
+							for (unsigned char promote_pc = QUEEN; promote_pc >= KNIGHT; promote_pc--) {
 								if (promote_pc != KING) {
 									local_env->pieces[i] = promote_pc;
 									if (is_check_local(local_env, &local_pos->cur_pos, !local_pos->cur_wtm)
@@ -652,7 +659,7 @@ bool gen_forward_moves_pawn_local(short_pieces_env *local_env, color_position *l
 						}
 					}
 					else {
-						for (unsigned char promote_pc = KNIGHT; promote_pc <= QUEEN; promote_pc++) {
+						for (unsigned char promote_pc = QUEEN; promote_pc >= KNIGHT; promote_pc--) {
 							if (promote_pc != KING) {
 								if (!func(local_env, local_pos, search_results, EMPTY, promote_pc, table_type) || search_results[0]) {
 									local_pos->cur_pos.piece_pos[i] = j0;
@@ -768,7 +775,7 @@ bool gen_forward_moves_capture_local(short_pieces_env *local_env, color_position
 								}
 							}
 							else {
-								for (unsigned char promote_pc = KNIGHT; promote_pc <= QUEEN; promote_pc++) {
+								for (unsigned char promote_pc = QUEEN; promote_pc >= KNIGHT; promote_pc--) {
 									if (promote_pc != KING) {
 										if (!func(local_env, local_pos, search_results, p, promote_pc, table_type) || search_results[0]) {
 											local_pos->cur_pos.piece_pos[i] = j0;
@@ -817,6 +824,12 @@ bool probe_forward_capture_local(short_pieces_env *local_env, color_position *lo
 	int eval = 0;
 	int probe_result = PROBE_NO_TABLE;
 	unsigned long minor_index = get_table_index_local(minor_pos.cur_wtm, &minor_env);
+#ifdef CHECKER_MODE
+	minor_env.indexer = NULL;
+	minor_env.indexer2 = NULL;
+	minor_env.bufferizer = NULL;
+	minor_env.bufferizer2 = NULL;
+#endif
 	probe_result = get_value_from_load_position_local(&eval, table_type, &minor_env, &minor_pos, minor_index);
 	if (probe_result != PROBE_OK || eval > 1 || eval < -1) {
 		char name[80];
@@ -840,6 +853,12 @@ bool probe_forward_capture_pl_local(short_pieces_env *local_env, color_position 
 	int eval = REJECT_SOME(search_results[1]);
 	int probe_result = PROBE_NO_TABLE;
 	unsigned long minor_index = get_table_index_local(minor_pos.cur_wtm, &minor_env);
+#ifdef CHECKER_MODE
+	minor_env.indexer = NULL;
+	minor_env.indexer2 = NULL;
+	minor_env.bufferizer = NULL;
+	minor_env.bufferizer2 = NULL;
+#endif
 	tbfile_entry *tbe = (tbfile_entry *)&search_results[2];
 	probe_result = get_value_from_load_position_local(&eval, table_type, &minor_env, &minor_pos, minor_index);
 	if (probe_result != PROBE_OK) {
@@ -885,10 +904,27 @@ bool probe_forward_move(short_pieces_env *local_env, color_position *local_pos, 
 	int eval = search_values[5];
 	int probe_result = PROBE_NO_TABLE;
 	unsigned long minor_index = get_table_index_local(minor_pos.cur_wtm, &minor_env);
-	if (capture == EMPTY && promote_pc == EMPTY && local_env->pslice_number == minor_env.pslice_number) // not minor. Probe only own color
+#ifdef CHECKER_MODE
+	minor_env.indexer = NULL;
+	minor_env.indexer2 = NULL;
+	minor_env.bufferizer = NULL;
+	minor_env.bufferizer2 = NULL;
+#endif
+	bool not_minor = (capture == EMPTY && promote_pc == EMPTY && local_env->pslice_number == minor_env.pslice_number);
+	if (not_minor) // not minor. Probe only own color
 		probe_result = get_value_from_own_color_local(&eval, table_type, &minor_env, &minor_pos, minor_index);
 	else
 		probe_result = get_value_from_load_position_local(&eval, table_type, &minor_env, &minor_pos, minor_index);
+#ifdef LOMONOSOV_FULL
+	if (probe_result == PROBE_NO_TABLE && !not_minor && DTM_TYPE(table_type)) {
+		int alter_table_type;
+		if (table_type % DTZ50_BEGIN == PL)
+			alter_table_type = table_type - PL + ML;
+		else
+			alter_table_type = table_type - ML + PL;
+		probe_result = get_value_from_load_position_local(&eval, alter_table_type, &minor_env, &minor_pos, minor_index);
+	}
+#endif
 	if (probe_result != PROBE_OK)
 		return false;
 	if (DTM_TYPE(table_type)) {
@@ -1151,6 +1187,8 @@ bool load_pieces_from_fen_local(const char *s, bool *ztb_invert_color, short_pie
 			if (s[i] == '/') y--;
 			continue;
 		}
+		if ((s[i] == 'P' || s[i] == 'p') && (y == 0 || y == 7))
+			return false;
 		if (s[i] == 'P' && !possible_slice_num) possible_slice_num = y;
 		if (s[i] == 'p') black_slice_num = y;
 		if (s[i] <= 'Z') white[wc++] = s[i]; // capital
@@ -1181,6 +1219,10 @@ bool load_pieces_from_fen_local(const char *s, bool *ztb_invert_color, short_pie
 	pieces_to_canonical(local_env->pieces, local_env->men_count, &local_env->white_pieces, map, ztb_invert_color);
 	// positions without KING
 	if (local_env->pieces[0] != KING || local_env->pieces[local_env->white_pieces] != KING) return false;
+	// positions with 2 white kings
+	if (local_env->white_pieces > 1 && local_env->pieces[1] == KING) return false;
+	// positions with 2 black kings
+	if ((local_env->men_count - local_env->white_pieces) > 1 && local_env->pieces[local_env->white_pieces + 1] == KING) return false;
 	if ((*ztb_invert_color) && black_slice_num) possible_slice_num = 7 - black_slice_num;
 	if (possible_slice_num) local_env->pslice_number = possible_slice_num;
 	else local_env->pslice_number = 0;
@@ -1528,7 +1570,7 @@ void log_memory() {
 int get_value_local(int *eval, int table_type, short_pieces_env *local_env, color_position *local_pos,
 	unsigned long local_index, char *table_path) {
 	TBINDEX tbind;
-	cache_file_bufferizer *filebuf;
+	cache_file_bufferizer *filebuf = NULL;
 
 	if (local_env->men_count == 2) { // kk
 		if (DTM_TYPE(table_type))
@@ -1539,12 +1581,14 @@ int get_value_local(int *eval, int table_type, short_pieces_env *local_env, colo
 		return PROBE_OK;
 	}
 
+#ifndef CHECKER_MODE
 	/*If current table not exist (known in earlier queries) then exit*/
 	if (get_cur_table_not_exist_local(local_index, table_type)) {
 		get_tb_name_local(probe_missing_table_name, local_env);
 		local_env->indexer = NULL;
 		return PROBE_NO_TABLE;
 	}
+#endif
 
 	/*Create indexator*/
 	rwlock_rdlock(probe_locker);
@@ -1556,9 +1600,11 @@ int get_value_local(int *eval, int table_type, short_pieces_env *local_env, colo
 	else
 		// different indexer for any color and any table's type
 		index = (table_type << 16) | local_index;
+#ifndef CHECKER_MODE
 	local_env->indexer = NULL;
+#endif
 	rwlock_rdlock(tb_indexers_locker);
-	if (caching_file_bufferizers && (it = tb_indexers.find(index)) != tb_indexers.end()) {
+	if (!local_env->indexer && caching_file_bufferizers && (it = tb_indexers.find(index)) != tb_indexers.end()) {
 		local_env->indexer = it->second;
 	}
 	rwlock_unlock(tb_indexers_locker);
@@ -1569,6 +1615,7 @@ int get_value_local(int *eval, int table_type, short_pieces_env *local_env, colo
 			filebuf = begin_read_table_file_cache_local(local_pos->cur_wtm, FB_NO_SEEK, FB_TO_THE_END, table_type, local_env, local_index, table_path);
 			if (!filebuf) {
 				delete local_env->indexer;
+				local_env->indexer = NULL;
 				rwlock_unlock(probe_locker);
 				get_tb_name_local(probe_missing_table_name, local_env);
 				return PROBE_NO_TABLE;
@@ -1627,12 +1674,23 @@ int get_value_local(int *eval, int table_type, short_pieces_env *local_env, colo
 
 	/*Open file or return if file not exist*/
 	rwlock_rdlock(probe_locker);
+#ifdef CHECKER_MODE
+	filebuf = (cache_file_bufferizer *)local_env->bufferizer;
+	if (!filebuf)
+		filebuf = begin_read_table_file_cache_local(local_pos->cur_wtm, FB_NO_SEEK, FB_TO_THE_END, table_type, local_env, local_index, table_path);
+	else
+		filebuf->trylock();
+#else
 	filebuf = begin_read_table_file_cache_local(local_pos->cur_wtm, FB_NO_SEEK, FB_TO_THE_END, table_type, local_env, local_index, table_path);
+#endif
 	if (!filebuf) {
 		rwlock_unlock(probe_locker);
 		get_tb_name_local(probe_missing_table_name, local_env);
 		return PROBE_NO_TABLE;
 	}
+#ifdef CHECKER_MODE
+	local_env->bufferizer = filebuf;
+#endif
 
 	bool pl_update = false;
 	if (table_type == PL && filebuf->dont_care())
@@ -1748,13 +1806,17 @@ int get_explicit_value_from_load_position_local(int *eval, int table_type, short
 	list<char *>::iterator it_paths;
 	int result = PROBE_NO_TABLE;
 	for (it_types = types_vector[table_type].begin(); it_types != types_vector[table_type].end(); it_types++) {
+		rwlock_rdlock(paths_locker);
 		for (it_paths = table_paths.begin(); it_paths != table_paths.end(); it_paths++) {
 			result = get_value_local(eval, *it_types, local_env, local_pos, local_index, *it_paths);
-			if (result != PROBE_NO_TABLE)
+			if (result != PROBE_NO_TABLE) {
+				rwlock_unlock(paths_locker);
 				return result;
+			}
 		}
 		if (!known_not_exist)
 			set_cur_table_not_exist_local(local_index, *it_types);
+		rwlock_unlock(paths_locker);
 	}
 	return result;
 }
@@ -1766,24 +1828,38 @@ bool get_any_color_existance_local(int table_type, short_pieces_env *local_env, 
 		local_index -= 1;
 	vector<int>::iterator it_types;
 	list<char *>::iterator it_paths;
+	rwlock_rdlock(paths_locker);
 	for (it_types = types_vector[table_type].begin(); it_types != types_vector[table_type].end(); it_types++) {
 		if (known_not_exist) {
-			if (!get_cur_table_not_exist_local(local_index, *it_types) || !get_cur_table_not_exist_local(local_index, *it_types))
+			if (!get_cur_table_not_exist_local(local_index, *it_types) || !get_cur_table_not_exist_local(local_index + 1, *it_types)) {
+				rwlock_unlock(paths_locker);
 				return true;
+			}
 		} else {
+			bool search_white = !get_cur_table_not_exist_local(local_index + 1, *it_types);
+			bool search_black = !get_cur_table_not_exist_local(local_index, *it_types);
 			char tbname[MAX_PATH];
 			for (it_paths = table_paths.begin(); it_paths != table_paths.end(); it_paths++) {
-				get_output_tb_filename_local(tbname, tt_to_ft_map[*it_types], local_env, *it_paths);
-				if (!access(tbname, 0))
-					return true;
-				get_output_tb_filename_local(tbname, tt_to_ft_map[*it_types] + 1, local_env, *it_paths);
-				if (!access(tbname, 0))
-					return true;
+				if (search_white) {
+					get_output_tb_filename_local(tbname, tt_to_ft_map[*it_types], local_env, *it_paths);
+					if (!access(tbname, 0)) {
+						rwlock_unlock(paths_locker);
+						return true;
+					}
+				}
+				if (search_black) {
+					get_output_tb_filename_local(tbname, tt_to_ft_map[*it_types] + 1, local_env, *it_paths);
+					if (!access(tbname, 0)) {
+						rwlock_unlock(paths_locker);
+						return true;
+					}
+				}
 			}
 			set_cur_table_not_exist_local(local_index, *it_types);
 			set_cur_table_not_exist_local(local_index + 1, *it_types);
 		}
 	}
+	rwlock_unlock(paths_locker);
 	return false;
 }
 
@@ -1792,7 +1868,19 @@ int get_value_from_own_color_local(int *eval, int table_type, short_pieces_env *
 	if (table_type % DTZ50_BEGIN != PL)
 		return get_explicit_value_from_load_position_local(eval, table_type, local_env, local_pos, local_index);
 	int tmp_eval = DTZ50_TYPE(table_type) ? WIN_CAPTURE : 0;
+#ifdef CHECKER_MODE
+	void *pl_bufferizer = local_env->bufferizer;
+	local_env->bufferizer = local_env->bufferizer2;
+	custom_tb_indexer *pl_indexer = local_env->indexer;
+	local_env->indexer = local_env->indexer2;
+#endif
 	int result = get_explicit_value_from_load_position_local(&tmp_eval, table_type + WL - PL, local_env, local_pos, local_index);
+#ifdef CHECKER_MODE
+	local_env->bufferizer2 = local_env->bufferizer;
+	local_env->bufferizer = pl_bufferizer;
+	local_env->indexer2 = local_env->indexer;
+	local_env->indexer = pl_indexer;
+#endif
 	if (result != PROBE_OK || tmp_eval == 0) {
 		*eval = -1;
 		return result;
@@ -1837,7 +1925,8 @@ int get_value_from_own_color_local(int *eval, int table_type, short_pieces_env *
 int get_value_from_alien_color_local(int *eval, int table_type, short_pieces_env *local_env, color_position *local_pos) {
 	int search_values[6] = {0, -2, -2, -2, 0, 0}; // {return from gen_moves, 3 init values, pawn move flag, initial eval (may be need only in win or lose)}
 	// may be we know from WL that it's win or lose
-	search_values[5] = *eval;
+	if (table_type % DTZ50_BEGIN == PL)
+		search_values[5] = *eval;
 	unsigned char local_board[128];
 	clear_board_local(local_board);
 	put_pieces_on_board_local(local_env, local_pos, local_board);
@@ -1860,8 +1949,10 @@ int get_value_from_alien_color_local(int *eval, int table_type, short_pieces_env
 
 int get_value_from_load_position_local(int *eval, int table_type, short_pieces_env *local_env, color_position *local_pos,
 	unsigned long local_index) {
-	if (!get_any_color_existance_local(table_type, local_env, local_index))
+	if (!get_any_color_existance_local(table_type, local_env, local_index)) {
+		get_tb_name_local(probe_missing_table_name, local_env);
 		return PROBE_NO_TABLE;
+	}
 	int result = get_value_from_own_color_local(eval, table_type, local_env, local_pos, local_index);
 	if (result == PROBE_NO_TABLE)
 		result = get_value_from_alien_color_local(eval, table_type, local_env, local_pos);

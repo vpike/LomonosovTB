@@ -51,7 +51,7 @@ FUNC_SYNTAX int dll_probe_fen(const char *fen, int *eval, char table_type);
 FUNC_SYNTAX int dll_probe_fen_with_order(const char *fen, int *eval, char *table_type = 0);
 FUNC_SYNTAX int dll_probe_fen_dtmz50(const char *fen, int *eval);
 FUNC_SYNTAX int dll_probe_position(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, int *eval, char table_type, unsigned char castlings = 0);
-FUNC_SYNTAX int dll_probe_position_with_order(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, int *eval, unsigned char castlings = 0, char *table_type = 0);
+FUNC_SYNTAX int dll_probe_position_with_order(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, int *eval, char *table_type = 0, unsigned char castlings = 0);
 FUNC_SYNTAX int dll_probe_position_dtmz50(int side, unsigned int *psqW, unsigned int *psqB, int *piCount, int sqEnP, int *eval, unsigned char castlings = 0);
 #ifndef TB_DLL_EXPORT
 FUNC_SYNTAX unsigned long long dll_get_number_load_from_cache();
@@ -67,6 +67,7 @@ FUNC_SYNTAX int dll_probe_fen_special_mate_state(const char *fen, int *eval, cha
 // long probes. Be sure that size of moves is large enough.
 FUNC_SYNTAX int dll_get_tree_fen(const char *fen, char *moves, char table_type);
 FUNC_SYNTAX int dll_get_tree_bounded_fen(const char *fen, char *moves, char table_type, int best_bound, int mid_bound, int worse_bound);
+FUNC_SYNTAX int dll_get_cells_fen(const char *fen, unsigned int piece_place, char *moves, char table_type);
 FUNC_SYNTAX int dll_get_best_move_fen(const char *fen, char *move, char table_type);
 FUNC_SYNTAX int dll_get_line_fen(const char *fen, char *moves, char table_type);
 FUNC_SYNTAX int dll_get_line_bounded_fen(const char *fen, char *moves, char table_type, int moves_bound);

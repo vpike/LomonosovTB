@@ -24,6 +24,7 @@
 #define PROBE_OK_WITHOUT_VALUE 5
 #define PROBE_MATE 6
 #define PROBE_NOT_FINISHED 7
+#define PROBE_NO_CONNECTION 8
 
 #include "eginttypes.h"
 
@@ -176,6 +177,11 @@ typedef struct {
 	custom_tb_indexer *indexer;
 	bool full_color_symmetry;
 	unsigned char pslice_number;
+#ifdef CHECKER_MODE
+	void *bufferizer;
+	void *bufferizer2;
+	custom_tb_indexer *indexer2;
+#endif
 } short_pieces_env;
 
 typedef uint16_t tbfile_entry; // 16 bits

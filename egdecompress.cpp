@@ -94,13 +94,14 @@ void compressed_file_bufferizer::load_virtual_files_shift() {
 		else
 			pcs_table_size = pieces_in_last_file;
 		virtual_files_count = (pcs_table_size + VIRTUAL_FILE_BLOCKS_COUNT - 1) / VIRTUAL_FILE_BLOCKS_COUNT;
+		if (not_caching && virtual_files_shift)
+			free(virtual_files_shift);
+		virtual_files_shift = NULL;
 		// read from file
 		if (virtual_files_count > 1) {
 			src_file->set_buf_size(128);
 			if (!current_file_number) src_file->seek(header_size);
 			else src_file->seek(0);
-			if (not_caching && virtual_files_shift)
-				free(virtual_files_shift);
 			virtual_files_shift = (file_offset *)malloc((virtual_files_count + 1) * sizeof(file_offset));
 			file_offset *tmp = (file_offset *)malloc((virtual_files_count - 1) * sizeof(file_offset));
 			src_file->read((char *)tmp, (virtual_files_count - 1) * sizeof(file_offset));
@@ -246,13 +247,13 @@ unsigned long long compressed_file_bufferizer::get_piece_number() {
 	if (file_number != current_file_number) {
 		current_file_number = file_number;
 		piece_table_loaded = false;
-		choose_src_file(); // virtual_files_shift loaded here
-		if (!not_caching) {
-			mutex_lock(read_bufferizer_mutexer);
-			src_file->unlock();
-			mutex_unlock(read_bufferizer_mutexer);
-			src_file = NULL;
-		}
+	}
+	choose_src_file(); // virtual_files_shift loaded here
+	if (!not_caching) {
+		mutex_lock(read_bufferizer_mutexer);
+		src_file->unlock();
+		mutex_unlock(read_bufferizer_mutexer);
+		src_file = NULL;
 	}
 	unsigned char old_virtual_file_number = current_virtual_file_number;
 	calc_virtual_file_number();
@@ -802,6 +803,11 @@ bool compressed_file_bufferizer::begin_read(const char *filename, file_offset st
 		for (int i = 1; i < files_count; i++) {
 			file_starts[i] = read_int64_LE(buf + buf_read_offset);
 			buf_read_offset += 8;
+		}
+		// some mistake in pl-generation
+		if (!(arch_type & TB_TERNARY) && !(arch_type & TB_DTZ50)) {
+			for (int i = 1; i < files_count; i++)
+				file_starts[i] *= 2;
 		}
 	}
 	// read size of piece size and PARAMS

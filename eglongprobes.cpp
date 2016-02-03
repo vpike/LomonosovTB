@@ -10,7 +10,7 @@
 
 using namespace std;
 
-string move_valued_to_string(move_valued move) {
+string move_valued_to_string(move_valued move, bool print_error_code) {
 	string res;
 	res.clear();
 	res.push_back('a' + (move.from & 0x07));
@@ -24,6 +24,11 @@ string move_valued_to_string(move_valued move) {
 		char str_value[8];
 		sprintf(str_value, "%d", move.value);
 		res.append(str_value);
+	} else if (print_error_code) {
+		res.push_back(' ');
+		char str_code[8];
+		sprintf(str_code, "!%d", move.value);
+		res.append(str_code);
 	}
 	return res;
 }
@@ -81,6 +86,9 @@ bool probe_forward_move_tree(short_pieces_env *local_env, color_position *local_
 	probe_result = get_value_from_load_position_local(&eval, table_type, &minor_env, &minor_pos, minor_index);
 	if (probe_result != PROBE_OK) {
 		search_results[1] = 1;
+		move.value = probe_result;
+		move.with_value = false;
+		moves->push_back(move);
 		return true;
 	}
 	change_internal_value(&eval, table_type);
@@ -160,6 +168,8 @@ int sign(int value) {
 }
 
 bool move_valued_comparer(move_valued move1, move_valued move2) {
+	if (move1.with_value != move2.with_value)
+		return move1.with_value > move2.with_value;
 	int sign1 = sign(move1.value), sign2 = sign(move2.value);
 	if (sign1 != sign2)
 		return sign1 < sign2;
@@ -181,6 +191,71 @@ int get_tree_from_load_position_local(vector<move_valued> *moves, int table_type
 	gen_forward_moves_all_local(local_env, local_pos, local_board, search_results, table_type, probe_forward_move_tree);
 	sort(moves->begin(), moves->end(), move_valued_comparer);
 	return search_results[1] ? PROBE_NOT_FINISHED : PROBE_OK;
+}
+
+int get_cells_from_load_position_local(vector<move_valued> *moves, int table_type, short_pieces_env *local_env, color_position *local_pos, unsigned char sq_from, bool need_invert) {
+	moves->clear();
+	int piece_num = 0;
+	for (piece_num = 0; piece_num < local_env->men_count; piece_num++) {
+		if (local_pos->cur_pos.piece_pos[piece_num] == sq_from)
+			break;
+	}
+	if (piece_num >= local_env->men_count)
+		return PROBE_INVALID_POSITION;
+	unsigned long local_index = get_table_index_local(local_pos->cur_wtm, local_env);
+
+	int result = PROBE_OK;
+	moves->resize(64);
+	int old_pslice_number = local_env->pslice_number;
+	for (int sq = 0; sq < 64; sq++) {
+		unsigned char sq_inv = sq;
+		if (need_invert)
+			sq_inv ^= 0x38;
+		unsigned char new_pos = bb_to_board[sq];
+		moves->at(sq_inv).from = sq_from;
+		moves->at(sq_inv).target = new_pos;
+		moves->at(sq_inv).promote = PROBE_OK;
+		moves->at(sq_inv).value = 0;
+		if (need_invert) {
+			moves->at(sq_inv).from ^= 0x70;
+			moves->at(sq_inv).target ^= 0x70;
+		}
+		if ((local_env->pieces[piece_num] == WPAWN && sq >= 56) || (local_env->pieces[piece_num] == BPAWN && sq < 8)) {
+			moves->at(sq_inv).promote = PROBE_NO_LOAD_FEN;
+			continue;
+		}
+		for (int i = 0; i < local_env->men_count; i++) {
+			if (i != piece_num && local_pos->cur_pos.piece_pos[i] == new_pos) {
+				moves->at(sq_inv).promote = PROBE_INVALID_POSITION;
+				break;
+			}
+		}
+
+		local_pos->cur_pos.piece_pos[piece_num] = new_pos;
+		if (moves->at(sq_inv).promote != PROBE_OK || 
+				!is_legal_position_local(local_env, &local_pos->cur_pos, local_pos->cur_wtm)) {
+			moves->at(sq_inv).promote = PROBE_INVALID_POSITION;
+			continue;
+		}
+
+		if (local_env->pieces[piece_num] == WPAWN) {
+			local_env->pslice_number = 1;
+			for (int i = local_env->white_pieces - 1; local_env->pieces[i] == WPAWN; i--) {
+				if (((adjust_enpassant_pos(local_pos->cur_pos.piece_pos[i], WPAWN) & 0x70) >> 4) > local_env->pslice_number)
+					local_env->pslice_number = (adjust_enpassant_pos(local_pos->cur_pos.piece_pos[i], WPAWN) & 0x70) >> 4;
+			}
+			local_index = get_table_index_local(local_pos->cur_wtm, local_env);
+		}
+		
+		moves->at(sq_inv).promote = get_value_from_load_position_local(&moves->at(sq_inv).value, table_type, local_env, local_pos, local_index);
+		change_internal_value(&moves->at(sq_inv).value, table_type);
+		if (moves->at(sq_inv).promote == PROBE_NO_TABLE)
+			result = PROBE_NOT_FINISHED;
+	}
+	local_env->pslice_number = old_pslice_number;
+	local_pos->cur_pos.piece_pos[piece_num] = sq_from;
+	
+	return result;
 }
 
 // 'eval' = eval of current position (unsigned).

@@ -274,7 +274,6 @@ void set_bit_by_index(unsigned char *arr, int index, unsigned char value) {
 
 // for values "1" and "0"
 void new_set_bit_by_index(unsigned char *arr, int index, unsigned char value) {
-	rwlock_wrlock(not_exist_tables_locker);
 	if (value != 0) {
 		value <<= index % 8;
 		arr[index / 8] |= value;
@@ -285,7 +284,6 @@ void new_set_bit_by_index(unsigned char *arr, int index, unsigned char value) {
 		value = ~value;
 		arr[index / 8] &= value;
 	}
-	rwlock_unlock(not_exist_tables_locker);
 }
 
 #define pawn 0

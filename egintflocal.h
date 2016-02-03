@@ -43,11 +43,14 @@ typedef bool forward_move_simple_func_local(short_pieces_env *local_env, color_p
 void clear_board_local(unsigned char *local_board);
 void put_pieces_on_board_local(short_pieces_env *local_env, color_position *local_pos, unsigned char *local_board);
 void take_pieces_from_board_local(short_pieces_env *local_env, color_position *local_pos, unsigned char *local_board);
+bool is_check_local(short_pieces_env *local_env, position *pos, bool white_king);
 bool is_legal_position_local(short_pieces_env *local_env, position *pos, bool white_to_move);
 int get_pslice(position *pos, unsigned char *local_pieces, int local_white_pieces);
 int get_invert_pslice(position *pos, unsigned char *local_pieces, int local_men_count);
 void invert_position(position *pos, int local_men_count);
+void invert_position_diag(position *pos, int local_men_count);
 void invert_colors(position *pos, int local_white_pieces);
+bool has_full_color_symmetry_local(short_pieces_env *local_env);
 void position_to_minor_env(short_pieces_env *local_env, color_position *local_pos, short_pieces_env *minor_env, 
 	color_position *minor_pos, int capture, unsigned long promote_pc, bool *was_invert = 0);
 bool gen_forward_moves_all_local(short_pieces_env *local_env, color_position *local_pos, unsigned char *local_board,
@@ -89,6 +92,7 @@ bool load_lomonosov_tb_position_local(int side, unsigned int *psqW, unsigned int
 // Get the fen from the position in internal form.
 void form_fen_local(position *pos, bool wtm, char *fen, short_pieces_env *local_env);
 // Get the name of ending for the fen.
+void get_tb_name_local(char *buf, short_pieces_env *local_env);
 void get_tb_name_without_slice_local(char *buf, short_pieces_env *local_env);
 void get_output_tb_filename_local(char *tab_file, int kind, short_pieces_env *local_env, char *table_path);
 

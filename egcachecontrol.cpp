@@ -110,20 +110,12 @@ void clean_hidden_cache() {
 		//fprintf(f, "%s: Real size = %lld\ncleaning from %lld Bytes to ", ctime(&t_begin), get_indexers_size() + get_bufferizers_size(false) + get_bufferizers_size(true), cur_hidden_size);
 		fprintf(f, "%s: cleaning from %lld Mb to ", ctime(&t_begin), cur_hidden_size >> 20);
 	}
-	unordered_map<unsigned long, bufferizer_list<cache_file_bufferizer> *>::iterator it;
-	unordered_map<unsigned long, custom_tb_indexer *>::iterator it_indexer;
-	unordered_map<unsigned long, piece_offsets_list *>::iterator it_offsets;
-	unordered_map<unsigned long, bufferizer_list<read_file_bufferizer> *>::iterator it_read_buf;
-	unsigned long indexer_index;
+
 	for (int table_type = MIN_TYPE; table_type <= MAX_TYPE; table_type++) {
-		it = cache_file_bufferizers[table_type].begin();
+		unordered_map<unsigned long, bufferizer_list<cache_file_bufferizer> *>::iterator it = cache_file_bufferizers[table_type].begin();
 		while (it != cache_file_bufferizers[table_type].end()) {
 			bufferizer_list<cache_file_bufferizer> *buf_list = it->second;
 			bufferizer_list<cache_file_bufferizer> *root = NULL;
-			if (!MUTABLE_TYPE(table_type))
-				indexer_index = it->first >> 1;
-			else
-				indexer_index = (table_type << 16) | it->first;
 			while (buf_list != NULL) {
 				if (buf_list->requests * 100 < max_requests * clean_percent) {
 					bufferizer_list<cache_file_bufferizer> *tmp = buf_list;
@@ -135,7 +127,12 @@ void clean_hidden_cache() {
 						//delete itself
 						delete buf_list;
 						//delete indexer
-						it_indexer = tb_indexers.find(indexer_index);
+						unsigned long indexer_index;
+						if (!MUTABLE_TYPE(table_type))
+							indexer_index = it->first >> 1;
+						else
+							indexer_index = ((unsigned long)table_type << 16) | it->first;
+						unordered_map<unsigned long, custom_tb_indexer *>::iterator it_indexer = tb_indexers.find(indexer_index);
 						if (it_indexer != tb_indexers.end()) {
 							cur_hidden_size -= it_indexer->second->get_size();
 							delete it_indexer->second;
@@ -143,7 +140,7 @@ void clean_hidden_cache() {
 						}
 						//delete piece_offsets
 						unsigned long key = (((unsigned long)table_type) << 16) | it->first;
-						it_offsets = piece_offsets_map.find(key);
+						unordered_map<unsigned long, piece_offsets_list *>::iterator it_offsets = piece_offsets_map.find(key);
 						if (it_offsets != piece_offsets_map.end()) {
 							piece_offsets_list *list = it_offsets->second;
 							while (list != NULL) {
@@ -154,7 +151,7 @@ void clean_hidden_cache() {
 							piece_offsets_map.erase(it_offsets);
 						}
 						//delete read_file_bufferizers
-						it_read_buf = read_file_bufferizers.find(key);
+						unordered_map<unsigned long, bufferizer_list<read_file_bufferizer> *>::iterator it_read_buf = read_file_bufferizers.find(key);
 						if (it_read_buf != read_file_bufferizers.end()) {
 							bufferizer_list<read_file_bufferizer> *list = it_read_buf->second;
 							while (list != NULL) {
@@ -236,6 +233,7 @@ void allocate_cache_memory() {
 	unsigned long long cache_size = global_cache.get_size(false);
 	long long free_size = total_cache_size - hidden_size - cache_size;
 	if (free_size <= (5 << 20)) {
+		free_size = (5 << 20);
 		// last 5 MB to least
 		if (cache_size < hidden_size)
 			cache_size += free_size;
